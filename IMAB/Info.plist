@@ -2,6 +2,33 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.271622590390-c1m1s803i06educc4figodrmsc8tdlfi</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>IMAB</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb540194831063124</string>
+			</array>
+		</dict>
+	</array>
+	<key>FacebookAppID</key>
+	<string>540194831063124</string>
+	<key>FacebookClientToken</key>
+	<string>30ea226fced097bdf5ded53be5446c7c</string>
+	<key>FacebookDisplayName</key>
+	<string>IMAB</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -21,5 +48,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

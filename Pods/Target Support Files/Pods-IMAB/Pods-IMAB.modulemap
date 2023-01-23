@@ -1,0 +1,6 @@
+framework module Pods_IMAB {
+  umbrella header "Pods-IMAB-umbrella.h"
+
+  export *
+  module * { export * }
+}
