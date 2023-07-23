@@ -21,9 +21,11 @@ struct CustomerInfoCallback: CacheKeyProviding {
     var source: NetworkOperation.Type
     var completion: Completion
 
-    init(operation: CacheableNetworkOperation, completion: @escaping Completion) {
-        self.cacheKey = operation.cacheKey
-        self.source = type(of: operation)
+    init<T: CacheableNetworkOperation>(cacheKey: String,
+                                       source: T.Type,
+                                       completion: @escaping Completion) {
+        self.cacheKey = cacheKey
+        self.source = T.self
         self.completion = completion
     }
 
@@ -44,7 +46,6 @@ extension CallbackCache where T == CustomerInfoCallback {
     private func callbacks(ofType type: NetworkOperation.Type) -> [T] {
         return self
             .cachedCallbacksByKey
-            .value
             .lazy
             .flatMap(\.value)
             .filter { $0.source == type }

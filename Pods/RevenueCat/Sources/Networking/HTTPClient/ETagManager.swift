@@ -16,49 +16,97 @@ import Foundation
 
 class ETagManager {
 
-    static let eTagHeaderName = "X-RevenueCat-ETag"
+    static let eTagRequestHeaderName = HTTPClient.RequestHeader.eTag.rawValue
+    static let eTagValidationTimeRequestHeaderName = HTTPClient.RequestHeader.eTagValidationTime.rawValue
+    static let eTagResponseHeaderName = HTTPClient.ResponseHeader.eTag.rawValue
 
     private let userDefaults: SynchronizedUserDefaults
+    private let verificationMode: Signing.ResponseVerificationMode
 
-    convenience init() {
+    convenience init(verificationMode: Signing.ResponseVerificationMode) {
         self.init(
-            userDefaults: UserDefaults(suiteName: ETagManager.suiteName) ?? UserDefaults.standard
+            userDefaults: UserDefaults(suiteName: Self.suiteName)
+            // This should never return `nil` for this known `suiteName`,
+            // but `.standard` is a good fallback anyway.
+            ?? UserDefaults.standard,
+            verificationMode: verificationMode
         )
     }
 
-    init(userDefaults: UserDefaults) {
+    init(userDefaults: UserDefaults, verificationMode: Signing.ResponseVerificationMode) {
         self.userDefaults = .init(userDefaults: userDefaults)
+        self.verificationMode = verificationMode
     }
 
-    func eTagHeader(for urlRequest: URLRequest, refreshETag: Bool = false) -> [String: String] {
-        var storedETag = ""
-        if !refreshETag, let storedETagAndResponse = storedETagAndResponse(for: urlRequest) {
-            storedETag = storedETagAndResponse.eTag
+    /// - Parameter withSignatureVerification: whether the request contains a nonce.
+    func eTagHeader(
+        for urlRequest: URLRequest,
+        withSignatureVerification: Bool,
+        refreshETag: Bool = false
+    ) -> [String: String] {
+        func eTag() -> (tag: String, date: String?)? {
+            if refreshETag { return nil }
+            guard let storedETagAndResponse = self.storedETagAndResponse(for: urlRequest) else {
+                Logger.verbose(Strings.etag.found_no_etag(urlRequest))
+                return nil
+            }
+
+            let shouldUseETag = (
+                !withSignatureVerification ||
+                self.shouldIgnoreVerificationErrors ||
+                storedETagAndResponse.verificationResult == .verified
+            )
+
+            if shouldUseETag {
+                Logger.verbose(Strings.etag.using_etag(urlRequest,
+                                                       storedETagAndResponse.eTag,
+                                                       storedETagAndResponse.validationTime))
+
+                return (tag: storedETagAndResponse.eTag,
+                        date: storedETagAndResponse.validationTime?.millisecondsSince1970.description)
+            } else {
+                Logger.verbose(Strings.etag.not_using_etag(
+                    urlRequest,
+                    storedETagAndResponse.verificationResult,
+                    needsSignatureVerification: withSignatureVerification
+
+                ))
+                return nil
+            }
         }
-        return [ETagManager.eTagHeaderName: storedETag]
+
+        let (etag, date) = eTag() ?? ("", nil)
+
+        return [
+            HTTPClient.RequestHeader.eTag.rawValue: etag,
+            HTTPClient.RequestHeader.eTagValidationTime.rawValue: date
+        ]
+            .compactMapValues { $0 }
     }
 
-    func httpResultFromCacheOrBackend(with response: HTTPURLResponse,
-                                      data: Data?,
+    /// - Returns: `response` if a cached response couldn't be fetched,
+    /// or the cached `HTTPResponse`, always including the headers in `response`.
+    func httpResultFromCacheOrBackend(with response: HTTPResponse<Data?>,
                                       request: URLRequest,
                                       retried: Bool) -> HTTPResponse<Data>? {
-        let statusCode: HTTPStatusCode = .init(rawValue: response.statusCode)
-        let resultFromBackend = HTTPResponse(statusCode: statusCode, body: data)
-            .asOptionalResponse
+        let statusCode: HTTPStatusCode = response.statusCode
+        let resultFromBackend = response.asOptionalResponse
 
-        let headersInResponse = response.allHeaderFields
+        guard let eTagInResponse = response.value(forHeaderField: Self.eTagResponseHeaderName) else {
+            return resultFromBackend
+        }
 
-        let eTagInResponse: String? = headersInResponse[ETagManager.eTagHeaderName] as? String ??
-        headersInResponse[ETagManager.eTagHeaderName.lowercased()] as? String
+        if self.shouldUseCachedVersion(responseCode: statusCode) {
+            if let storedResponse = self.storedETagAndResponse(for: request) {
+                let newResponse = storedResponse.withUpdatedValidationTime()
 
-        guard let eTagInResponse = eTagInResponse else { return resultFromBackend }
-        if shouldUseCachedVersion(responseCode: statusCode) {
-            if let storedResponse = storedHTTPResponse(for: request) {
-                return storedResponse
+                self.storeIfPossible(newResponse, for: request)
+                return newResponse.asResponse(withRequestDate: response.requestDate,
+                                              headers: response.responseHeaders)
             }
             if retried {
                 Logger.warn(
-                    Strings.network.could_not_find_cached_response_in_already_retried(
+                    Strings.etag.could_not_find_cached_response_in_already_retried(
                         response: resultFromBackend?.description ?? ""
                     )
                 )
@@ -66,22 +114,35 @@ class ETagManager {
             }
             return nil
         }
-        storeStatusCodeAndResponseIfNoError(
-                for: request,
-                statusCode: statusCode,
-                data: data,
-                eTag: eTagInResponse
+
+        self.storeStatusCodeAndResponseIfNoError(
+            for: request,
+            response: response,
+            eTag: eTagInResponse
         )
         return resultFromBackend
     }
 
     func clearCaches() {
+        Logger.debug(Strings.etag.clearing_cache)
+
         self.userDefaults.write {
             $0.removePersistentDomain(forName: ETagManager.suiteName)
         }
     }
 
 }
+
+extension ETagManager {
+
+    // Visible for tests
+    static func cacheKey(for request: URLRequest) -> String? {
+        return request.url?.absoluteString
+    }
+
+}
+
+// MARK: - Private
 
 private extension ETagManager {
 
@@ -91,7 +152,7 @@ private extension ETagManager {
 
     func storedETagAndResponse(for request: URLRequest) -> Response? {
         return self.userDefaults.read {
-            if let cacheKey = eTagDefaultCacheKey(for: request),
+            if let cacheKey = Self.cacheKey(for: request),
                let value = $0.object(forKey: cacheKey),
                let data = value as? Data {
                 return try? JSONDecoder.default.decode(Response.self, jsonData: data)
@@ -101,27 +162,39 @@ private extension ETagManager {
         }
     }
 
-    func storedHTTPResponse(for request: URLRequest) -> HTTPResponse<Data>? {
-        return storedETagAndResponse(for: request)?.asResponse
-    }
-
     func storeStatusCodeAndResponseIfNoError(for request: URLRequest,
-                                             statusCode: HTTPStatusCode,
-                                             data: Data?,
+                                             response: HTTPResponse<Data?>,
                                              eTag: String) {
-        if let data = data, statusCode != .notModified && !statusCode.isServerError,
-           let cacheKey = eTagDefaultCacheKey(for: request) {
-            let eTagAndResponse = Response(eTag: eTag, statusCode: statusCode, data: data)
-            if let dataToStore = eTagAndResponse.asData() {
-                self.userDefaults.write {
-                    $0.set(dataToStore, forKey: cacheKey)
-                }
+        if let data = response.body {
+            if response.shouldStore(ignoreVerificationErrors: self.shouldIgnoreVerificationErrors) {
+                self.storeIfPossible(
+                    Response(
+                        eTag: eTag,
+                        statusCode: response.statusCode,
+                        data: data,
+                        verificationResult: response.verificationResult
+                    ),
+                    for: request
+                )
+            } else {
+                Logger.verbose(Strings.etag.not_storing_etag(response))
             }
         }
     }
 
-    func eTagDefaultCacheKey(for request: URLRequest) -> String? {
-        return request.url?.absoluteString
+    func storeIfPossible(_ response: Response, for request: URLRequest) {
+        if let cacheKey = Self.cacheKey(for: request),
+           let dataToStore = response.asData() {
+            Logger.verbose(Strings.etag.storing_response(request, response))
+
+            self.userDefaults.write {
+                $0.set(dataToStore, forKey: cacheKey)
+            }
+        }
+    }
+
+    var shouldIgnoreVerificationErrors: Bool {
+        return !self.verificationMode.isEnabled
     }
 
     static let suiteNameBase: String  = "revenuecat.etags"
@@ -144,9 +217,28 @@ extension ETagManager {
 
     struct Response {
 
-        let eTag: String
-        let statusCode: HTTPStatusCode
-        let data: Data
+        var eTag: String
+        var statusCode: HTTPStatusCode
+        var data: Data
+        /// Used by the backend for advanced load shedding techniques.
+        @DefaultValue<Date?>
+        var validationTime: Date?
+        @DefaultValue<VerificationResult>
+        var verificationResult: VerificationResult
+
+        init(
+            eTag: String,
+            statusCode: HTTPStatusCode,
+            data: Data,
+            validationTime: Date? = nil,
+            verificationResult: VerificationResult
+        ) {
+            self.eTag = eTag
+            self.statusCode = statusCode
+            self.data = data
+            self.validationTime = validationTime
+            self.verificationResult = verificationResult
+        }
 
     }
 
@@ -160,10 +252,40 @@ extension ETagManager.Response {
         return try? JSONEncoder.default.encode(self)
     }
 
-    fileprivate var asResponse: HTTPResponse<Data> {
+    fileprivate func asResponse(
+        withRequestDate requestDate: Date?,
+        headers: HTTPClient.ResponseHeaders
+    ) -> HTTPResponse<Data> {
         return HTTPResponse(
             statusCode: self.statusCode,
-            body: self.data
+            responseHeaders: headers,
+            body: self.data,
+            requestDate: requestDate,
+            verificationResult: self.verificationResult
         )
     }
+
+    fileprivate func withUpdatedValidationTime() -> Self {
+        var copy = self
+        copy.validationTime = Date()
+
+        return copy
+    }
+
+}
+
+// MARK: -
+
+private extension HTTPResponse {
+
+    func shouldStore(ignoreVerificationErrors: Bool) -> Bool {
+        return (
+            self.statusCode != .notModified &&
+            // Note that we do want to store 400 responses to help the server
+            // If the request was wrong, it will also be wrong the next time.
+            !self.statusCode.isServerError &&
+            (ignoreVerificationErrors || self.verificationResult != .failed)
+        )
+    }
+
 }

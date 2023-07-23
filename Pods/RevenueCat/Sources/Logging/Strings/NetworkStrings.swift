@@ -17,9 +17,11 @@ import Foundation
 // swiftlint:disable identifier_name
 enum NetworkStrings {
 
-    case api_request_completed(_ request: HTTPRequest, httpCode: HTTPStatusCode)
     case api_request_started(HTTPRequest)
-    case reusing_existing_request_for_operation(CacheableNetworkOperation)
+    case api_request_completed(_ request: HTTPRequest, httpCode: HTTPStatusCode)
+    case api_request_failed(_ request: HTTPRequest, httpCode: HTTPStatusCode?, error: NetworkError)
+    case api_request_failed_status_code(HTTPStatusCode)
+    case reusing_existing_request_for_operation(CacheableNetworkOperation.Type, String)
     case creating_json_error(error: String)
     case json_data_received(dataString: String)
     case parsing_json_error(error: Error)
@@ -28,27 +30,39 @@ enum NetworkStrings {
     case starting_next_request(request: String)
     case starting_request(httpMethod: String, path: String)
     case retrying_request(httpMethod: String, path: String)
-    case could_not_find_cached_response
-    case could_not_find_cached_response_in_already_retried(response: String)
+    case failing_url_resolved_to_host(url: URL, resolvedHost: String)
     case blocked_network(url: URL, newHost: String?)
+    case api_request_redirect(from: URL, to: URL)
+    case operation_state(NetworkOperation.Type, state: String)
+    case request_handled_by_load_shedder(HTTPRequest.Path)
+
+    #if DEBUG
+    case api_request_forcing_server_error(HTTPRequest)
+    case api_request_forcing_signature_failure(HTTPRequest)
+    #endif
 
 }
 
-extension NetworkStrings: CustomStringConvertible {
+extension NetworkStrings: LogMessage {
 
     var description: String {
         switch self {
+        case let .api_request_started(request):
+            return "API request started: \(request.description)"
 
         case let .api_request_completed(request, httpCode):
-            return "API request completed: \(request.method.httpMethod) \(request.path.url?.path ?? "")" +
-            " \(httpCode.rawValue)"
+            return "API request completed: \(request.description) (\(httpCode.rawValue))"
 
-        case let .api_request_started(request):
-            return "API request started: \(request.method.httpMethod) \(request.path.url?.path ?? "")"
+        case let .api_request_failed(request, statusCode, error):
+            return "API request failed: \(request.description) (\(statusCode?.rawValue.description ?? "<>")): " +
+            "\(error.description)"
 
-        case let .reusing_existing_request_for_operation(operation):
-            return "Network operation '\(type(of: operation))' found with the same cache key " +
-            "'\(operation.individualizedCacheKeyPart.prefix(15))...'. Skipping request."
+        case let .api_request_failed_status_code(statusCode):
+            return "API request failed with status code \(statusCode.rawValue)"
+
+        case let .reusing_existing_request_for_operation(operationType, cacheKey):
+            return "Network operation '\(operationType)' found with the same cache key " +
+            "'\(cacheKey.prefix(15))...'. Skipping request."
 
         case let .creating_json_error(error):
             return "Error creating request with body: \(error)"
@@ -76,19 +90,41 @@ extension NetworkStrings: CustomStringConvertible {
         case let .retrying_request(httpMethod, path):
             return "Retrying request \(httpMethod) \(path)"
 
-        case .could_not_find_cached_response:
-            return "We were expecting to be able to return a cached response, but we can't find it. " +
-                "Retrying call with a new ETag."
+        case let .failing_url_resolved_to_host(url, resolvedHost):
+            return "Failing url '\(url)' resolved to host '\(resolvedHost)'"
 
-        case .could_not_find_cached_response_in_already_retried(let response):
-            return "We can't find the cached response, but call has already been retried. " +
-                "Returning result from backend \(response)"
-
-        case .blocked_network(let url, let newHost):
+        case let .blocked_network(url, newHost):
             return "It looks like requests to RevenueCat are being blocked. Context: We're attempting to connect " +
             "to \(url.absoluteString) host: (\(newHost ?? "<unable to resolve>")), " +
             "see: https://rev.cat/dnsBlocking for more info."
+
+        case let .api_request_redirect(from, to):
+            return "Performing redirect from '\(from.absoluteString)' to '\(to.absoluteString)'"
+
+        case let .operation_state(operation, state):
+            return "\(operation): \(state)"
+
+        case let .request_handled_by_load_shedder(path):
+            return "Request was handled by load shedder: \(path.description)"
+
+        #if DEBUG
+        case let .api_request_forcing_server_error(request):
+            return "Returning fake HTTP 500 error for '\(request.description)'"
+
+        case let .api_request_forcing_signature_failure(request):
+            return "Returning fake signature verification failure for '\(request.description)'"
+        #endif
         }
+    }
+
+    var category: String { return "network" }
+
+}
+
+private extension HTTPRequest {
+
+    var description: String {
+        return "\(self.method.httpMethod) \(self.path.url?.path ?? "")"
     }
 
 }

@@ -16,15 +16,30 @@ import Foundation
 import StoreKit
 
 // swiftlint:disable identifier_name
+
 enum PurchaseStrings {
 
+    case storekit1_wrapper_init(StoreKit1Wrapper)
+    case storekit1_wrapper_deinit(StoreKit1Wrapper)
+    case device_cache_init(DeviceCache)
+    case device_cache_deinit(DeviceCache)
+    case purchases_orchestrator_init(PurchasesOrchestrator)
+    case purchases_orchestrator_deinit(PurchasesOrchestrator)
+    case updating_all_caches
+    case not_updating_caches_while_products_are_in_progress
     case cannot_purchase_product_appstore_configuration_error
     case entitlements_revoked_syncing_purchases(productIdentifiers: [String])
-    case finishing_transaction(StoreTransaction)
+    case entitlement_expired_outside_grace_period(expiration: Date, reference: Date)
+    case finishing_transaction(StoreTransactionType)
     case purchasing_with_observer_mode_and_finish_transactions_false_warning
-    case paymentqueue_removedtransaction(transaction: SKPaymentTransaction)
     case paymentqueue_revoked_entitlements_for_product_identifiers(productIdentifiers: [String])
-    case paymentqueue_updatedtransaction(transaction: SKPaymentTransaction)
+    case paymentqueue_adding_payment(SKPaymentQueue, SKPayment)
+    case paymentqueue_removed_transaction(SKPaymentTransactionObserver,
+                                          SKPaymentTransaction)
+    case paymentqueue_removed_transaction_no_callbacks_found(SKPaymentTransactionObserver,
+                                                             SKPaymentTransaction)
+    case paymentqueue_updated_transaction(SKPaymentTransactionObserver,
+                                          SKPaymentTransaction)
     case presenting_code_redemption_sheet
     case unable_to_present_redemption_sheet
     case purchases_synced
@@ -46,7 +61,6 @@ enum PurchaseStrings {
     case requested_products_not_found(request: SKRequest)
     case promo_purchase_product_not_found(productIdentifier: String)
     case callback_not_found_for_request(request: SKRequest)
-    case unable_to_get_intro_eligibility_for_user(error: Error)
     case duplicate_refund_request(details: String)
     case failed_refund_request(details: String)
     case unknown_refund_request_error(details: String)
@@ -59,17 +73,42 @@ enum PurchaseStrings {
     case begin_refund_no_active_entitlement
     case begin_refund_multiple_active_entitlements
     case begin_refund_customer_info_error(entitlementID: String?)
-    case cached_app_user_id_deleted
-    case check_eligibility_no_identifiers
-    case check_eligibility_failed(productIdentifier: String, error: Error)
     case missing_cached_customer_info
+    case sk2_transactions_update_received_transaction(productID: String)
+    case transaction_poster_handling_transaction(productID: String, offeringID: String?)
+    case caching_presented_offering_identifier(offeringID: String, productID: String)
+    case payment_queue_wrapper_delegate_call_sk1_enabled
+    case restorepurchases_called_with_allow_sharing_appstore_account_false
 
 }
 
-extension PurchaseStrings: CustomStringConvertible {
+extension PurchaseStrings: LogMessage {
 
     var description: String {
         switch self {
+        case let .storekit1_wrapper_init(instance):
+            return "StoreKit1Wrapper.init: \(Strings.objectDescription(instance))"
+
+        case let .storekit1_wrapper_deinit(instance):
+            return "StoreKit1Wrapper.deinit: \(Strings.objectDescription(instance))"
+
+        case let .device_cache_init(instance):
+            return "DeviceCache.init: \(Strings.objectDescription(instance))"
+
+        case let .device_cache_deinit(instance):
+            return "DeviceCache.deinit: \(Strings.objectDescription(instance))"
+
+        case let .purchases_orchestrator_init(instance):
+            return "PurchasesOrchestrator.init: \(Strings.objectDescription(instance))"
+
+        case let .purchases_orchestrator_deinit(instance):
+            return "PurchasesOrchestrator.deinit: \(Strings.objectDescription(instance))"
+
+        case .updating_all_caches:
+            return "Updating all caches"
+
+        case .not_updating_caches_while_products_are_in_progress:
+            return "Detected purchase in progress: will skip cache updates"
 
         case .cannot_purchase_product_appstore_configuration_error:
             return "Could not purchase SKProduct. " +
@@ -80,6 +119,10 @@ extension PurchaseStrings: CustomStringConvertible {
             return "Entitlements revoked for product " +
             "identifiers: \(productIdentifiers). \nsyncing purchases"
 
+        case let .entitlement_expired_outside_grace_period(expiration, reference):
+            return "Entitlement is no longer active (expired \(expiration)) " +
+            "and it's outside grace period window (last updated \(reference))"
+
         case let .finishing_transaction(transaction):
             return "Finishing transaction '\(transaction.transactionIdentifier)' " +
             "for product '\(transaction.productIdentifier)'"
@@ -89,9 +132,17 @@ extension PurchaseStrings: CustomStringConvertible {
             "purchase has been initiated. RevenueCat will not finish the " +
             "transaction, are you sure you want to do this?"
 
-        case .paymentqueue_removedtransaction(let transaction):
+        case .paymentqueue_revoked_entitlements_for_product_identifiers(let productIdentifiers):
+            return "PaymentQueue didRevokeEntitlementsForProductIdentifiers: \(productIdentifiers)"
+
+        case let .paymentqueue_adding_payment(queue, payment):
+            return "Adding payment for product '\(payment.productIdentifier)'. " +
+            "\(queue.transactions.count) transactions already in the queue."
+
+        case let .paymentqueue_removed_transaction(observer, transaction):
             let errorUserInfo = (transaction.error as NSError?)?.userInfo ?? [:]
-            return "PaymentQueue removedTransaction: \(transaction.payment.productIdentifier) " +
+
+            return "\(observer.debugName) removedTransaction: \(transaction.payment.productIdentifier) " +
             [
                 transaction.transactionIdentifier,
                 transaction.original?.transactionIdentifier,
@@ -102,12 +153,12 @@ extension PurchaseStrings: CustomStringConvertible {
                 .compactMap { $0 }
                 .joined(separator: " ")
 
-        case .paymentqueue_revoked_entitlements_for_product_identifiers(let productIdentifiers):
-            return "PaymentQueue " +
-            "didRevokeEntitlementsForProductIdentifiers: \(productIdentifiers)"
+        case let .paymentqueue_removed_transaction_no_callbacks_found(observer, transaction):
+            return "\(observer.debugName) removedTransaction for \(transaction.payment.productIdentifier) " +
+            "but no callbacks to notify"
 
-        case .paymentqueue_updatedtransaction(let transaction):
-            return "PaymentQueue updatedTransaction: \(transaction.payment.productIdentifier) " +
+        case let .paymentqueue_updated_transaction(observer, transaction):
+            return "\(observer.debugName) updatedTransaction: \(transaction.payment.productIdentifier) " +
             [
                 transaction.transactionIdentifier,
                 (transaction.error?.localizedDescription).map { "(\($0))" },
@@ -148,28 +199,27 @@ extension PurchaseStrings: CustomStringConvertible {
             return "Product purchase for '\(productIdentifier)' failed with error: \(error)"
 
         case .skpayment_missing_from_skpaymenttransaction:
-            return "There is a problem with the " +
-            "SKPaymentTransaction missing an SKPayment - this is an issue with the App Store."
+            return """
+            The SKPaymentTransaction has a nil value for SKPayment - this is an bug in StoreKit.
+            Transactions in the backend and in webhooks are unaffected.
+            """
 
         case .skpayment_missing_product_identifier:
             return "There is a problem with the SKPayment missing " +
             "a product identifier - this is an issue with the App Store."
 
         case .sktransaction_missing_transaction_date:
-            return "There is a problem with the SKPaymentTransaction missing " +
-            "a transaction date - this is an issue with the App Store. Unix Epoch will be used instead. \n" +
-            "Transactions in the backend and in webhooks are unaffected and will have the correct timestamps. " +
-            "This is a bug in StoreKit 1. To prevent running into this issue on devices running " +
-            "iOS 15+, watchOS 8+, macOS 12+, and tvOS 15+, make sure " +
-            "`usesStoreKit2IfAvailable` is set to true when calling `configure`."
+            return """
+            The SKPaymentTransaction has a nil value for transaction date - this is a bug in StoreKit.
+            Unix Epoch will be used instead for the transaction within the app.
+            Transactions in the backend and in webhooks are unaffected and will have the correct timestamps.
+            """
 
         case .sktransaction_missing_transaction_identifier:
-            return "There is a problem with the SKPaymentTransaction missing " +
-            "a transaction identifier - this is an issue with the App Store." +
-            "Transactions in the backend and in webhooks are unaffected and will have the correct identifier. " +
-            "This is a bug in StoreKit 1. To prevent running into this issue on devices running " +
-            "iOS 15+, watchOS 8+, macOS 12+, and tvOS 15+, make sure " +
-            "`usesStoreKit2IfAvailable` is set to true when calling `configure`."
+            return """
+            The SKPaymentTransaction has a nil value for transaction identifier - this is a bug in StoreKit.
+            Transactions in the backend and in webhooks are unaffected and will have the correct identifier.
+            """
 
         case .could_not_purchase_product_id_not_found:
             return "makePurchase - Could not purchase SKProduct. " +
@@ -198,8 +248,6 @@ extension PurchaseStrings: CustomStringConvertible {
         case .callback_not_found_for_request(let request):
             return "callback not found for failing request: \(request)"
 
-        case .unable_to_get_intro_eligibility_for_user(let error):
-            return "Unable to get intro eligibility for appUserID: \(error.localizedDescription)"
         case .duplicate_refund_request(let details):
             return "Refund already requested for this product and is either pending, already denied, " +
             "or already approved: \(details)"
@@ -229,24 +277,41 @@ extension PurchaseStrings: CustomStringConvertible {
         case .begin_refund_customer_info_error(let entitlementID):
             return "Failed to get CustomerInfo to proceed with refund for " +
                 "\(entitlementID.flatMap { "entitlement with ID " + $0 } ?? "active entitlement")."
-        case .cached_app_user_id_deleted:
-            return """
-                [\(Logger.frameworkDescription)] - Cached appUserID has been deleted from user defaults.
-                This leaves the SDK in an undetermined state. Please make sure that RevenueCat
-                entries in user defaults don't get deleted by anything other than the SDK.
-                More info: https://rev.cat/userdefaults-crash
-                """
-        case .check_eligibility_no_identifiers:
-            return "Requested trial or introductory price eligibility with no identifiers. " +
-            "This is likely a program error."
-
-        case let .check_eligibility_failed(productIdentifier, error):
-            return "Error checking discount eligibility for product '\(productIdentifier)': \(error).\n" +
-            "Will be considered not eligible."
-
         case .missing_cached_customer_info:
             return "Requested a cached CustomerInfo but it's not available."
+
+        case let .sk2_transactions_update_received_transaction(productID):
+            return "StoreKit.Transaction.updates: received transaction for product '\(productID)'"
+
+        case let .transaction_poster_handling_transaction(productID, offeringID):
+            let prefix = "TransactionPoster: handling transaction for product '\(productID)'"
+
+            if let offeringIdentifier = offeringID {
+                return prefix + " in Offering '\(offeringIdentifier)'"
+            } else {
+                return prefix
+            }
+
+        case let .caching_presented_offering_identifier(offeringID, productID):
+            return "Caching presented offering identifier '\(offeringID)' for product '\(productID)'"
+
+        case .payment_queue_wrapper_delegate_call_sk1_enabled:
+            return "Unexpectedly received PaymentQueueWrapperDelegate call with SK1 enabled"
+
+        case .restorepurchases_called_with_allow_sharing_appstore_account_false:
+            return "allowSharingAppStoreAccount is set to false and restorePurchases has been called. " +
+            "Are you sure you want to do this?"
         }
+    }
+
+    var category: String { return "purchases" }
+
+}
+
+private extension SKPaymentTransactionObserver {
+
+    var debugName: String {
+        return Strings.objectDescription(self)
     }
 
 }

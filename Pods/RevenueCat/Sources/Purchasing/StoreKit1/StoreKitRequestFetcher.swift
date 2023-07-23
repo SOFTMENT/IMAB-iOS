@@ -43,6 +43,8 @@ class StoreKitRequestFetcher: NSObject {
             self.receiptRefreshCompletionHandlers.append(completion)
 
             if self.receiptRefreshRequest == nil {
+                Logger.debug(Strings.storeKit.sk_receipt_request_started)
+
                 self.receiptRefreshRequest = self.requestFactory.receiptRefreshRequest()
                 self.receiptRefreshRequest?.delegate = self
                 self.receiptRefreshRequest?.start()
@@ -57,6 +59,7 @@ extension StoreKitRequestFetcher: SKRequestDelegate {
     func requestDidFinish(_ request: SKRequest) {
         guard request is SKReceiptRefreshRequest else { return }
 
+        Logger.debug(Strings.storeKit.sk_receipt_request_finished)
         self.finishReceiptRequest(request)
         request.cancel()
     }
@@ -64,7 +67,7 @@ extension StoreKitRequestFetcher: SKRequestDelegate {
     func request(_ request: SKRequest, didFailWithError error: Error) {
         guard request is SKReceiptRefreshRequest else { return }
 
-        Logger.appleError(Strings.storeKit.skrequest_failed(error: error))
+        Logger.appleError(Strings.storeKit.skrequest_failed(error as NSError))
         self.finishReceiptRequest(request)
         request.cancel()
     }
@@ -90,11 +93,9 @@ private extension StoreKitRequestFetcher {
             let completionHandlers = self.receiptRefreshCompletionHandlers
             self.receiptRefreshCompletionHandlers = []
 
-            self.operationDispatcher.dispatchOnWorkerThread {
-                for handler in completionHandlers {
-                    self.operationDispatcher.dispatchOnMainActor {
-                        handler()
-                    }
+            for handler in completionHandlers {
+                self.operationDispatcher.dispatchOnMainActor {
+                    handler()
                 }
             }
         }

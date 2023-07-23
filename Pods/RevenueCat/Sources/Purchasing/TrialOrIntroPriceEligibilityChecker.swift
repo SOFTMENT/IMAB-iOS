@@ -55,7 +55,7 @@ class TrialOrIntroPriceEligibilityChecker: TrialOrIntroPriceEligibilityCheckerTy
     func checkEligibility(productIdentifiers: [String],
                           completion: @escaping ReceiveIntroEligibilityBlock) {
         guard !productIdentifiers.isEmpty else {
-            Logger.warn(Strings.purchase.check_eligibility_no_identifiers)
+            Logger.warn(Strings.eligibility.check_eligibility_no_identifiers)
             completion([:])
             return
         }
@@ -66,7 +66,7 @@ class TrialOrIntroPriceEligibilityChecker: TrialOrIntroPriceEligibilityCheckerTy
                 do {
                     return try await self.sk2CheckEligibility(productIdentifiers)
                 } catch {
-                    Logger.appleError(Strings.purchase.unable_to_get_intro_eligibility_for_user(error: error))
+                    Logger.appleError(Strings.eligibility.unable_to_get_intro_eligibility_for_user(error: error))
 
                     return productIdentifiers.reduce(into: [:]) { resultDict, productId in
                         resultDict[productId] = IntroEligibility(eligibilityStatus: IntroEligibilityStatus.unknown)
@@ -82,7 +82,7 @@ class TrialOrIntroPriceEligibilityChecker: TrialOrIntroPriceEligibilityCheckerTy
                              completion: @escaping ReceiveIntroEligibilityBlock) {
         // We don't want to refresh receipts because it will likely prompt the user for their credentials,
         // and intro eligibility is triggered programmatically.
-        self.receiptFetcher.receiptData(refreshPolicy: .never) { data in
+        self.receiptFetcher.receiptData(refreshPolicy: .never) { data, _ in
             if #available(iOS 12.0, macOS 10.14, tvOS 12.0, watchOS 6.2, *),
                let data = data {
                 self.sk1CheckEligibility(with: data,
@@ -110,7 +110,11 @@ class TrialOrIntroPriceEligibilityChecker: TrialOrIntroPriceEligibilityCheckerTy
             let eligibilityStatus: IntroEligibilityStatus
 
             if let subscription = sk2Product.subscription, subscription.introductoryOffer != nil {
-                let isEligible = await subscription.isEligibleForIntroOffer
+                let isEligible = await TimingUtil.measureAndLogIfTooSlow(
+                    threshold: .introEligibility,
+                    message: Strings.eligibility.sk2_intro_eligibility_too_slow.description) {
+                        return await subscription.isEligibleForIntroOffer
+                    }
                 eligibilityStatus = isEligible ? .eligible : .ineligible
             } else {
                 eligibilityStatus = .noIntroOfferExists
@@ -218,7 +222,7 @@ extension TrialOrIntroPriceEligibilityChecker {
                                                    productIdentifiers: productIdentifiers) { backendResult, error in
             let result: [String: IntroEligibility] = {
                 if let error = error {
-                    Logger.error(Strings.purchase.unable_to_get_intro_eligibility_for_user(error: error))
+                    Logger.error(Strings.eligibility.unable_to_get_intro_eligibility_for_user(error: error))
                     return Set(productIdentifiers)
                         .dictionaryWithValues { _ in IntroEligibility(eligibilityStatus: .unknown) }
                 } else {

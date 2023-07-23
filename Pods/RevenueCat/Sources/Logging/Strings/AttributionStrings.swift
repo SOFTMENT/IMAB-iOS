@@ -39,14 +39,18 @@ enum AttributionStrings {
     case attribute_set_locally(attribute: String)
     case missing_advertiser_identifiers
     case adservices_not_supported
+    case adservices_mocking_token(String)
     case adservices_token_fetch_failed(error: Error)
     case adservices_token_post_failed(error: BackendError)
     case adservices_token_post_succeeded
+    case adservices_marking_as_synced(appUserID: String)
+    case adservices_token_unavailable_in_simulator
     case latest_attribution_sent_user_defaults_invalid(networkKey: String)
+    case copying_attributes(oldAppUserID: String, newAppUserID: String)
 
 }
 
-extension AttributionStrings: CustomStringConvertible {
+extension AttributionStrings: LogMessage {
 
     var description: String {
         switch self {
@@ -123,6 +127,9 @@ extension AttributionStrings: CustomStringConvertible {
             return "Tried to fetch AdServices attribution token on device without " +
                 "AdServices support."
 
+        case let .adservices_mocking_token(token):
+            return "AdServices: mocking token: \(token) for tests"
+
         case .adservices_token_fetch_failed(let error):
             return "Fetching AdServices attribution token failed with error: \(error.localizedDescription)"
 
@@ -132,10 +139,21 @@ extension AttributionStrings: CustomStringConvertible {
         case .adservices_token_post_succeeded:
             return "AdServices attribution token successfully posted"
 
+        case let .adservices_marking_as_synced(userID):
+            return "Marking AdServices attribution token as synced for App User ID: \(userID)"
+
+        case .adservices_token_unavailable_in_simulator:
+            return "AdServices attribution token is not available in the simulator"
+
         case .latest_attribution_sent_user_defaults_invalid(let networkKey):
             return "Attribution data stored in UserDefaults has invalid format for network key: \(networkKey)"
 
+        case .copying_attributes(let oldAppUserID, let newAppUserID):
+            return "Copying unsynced subscriber attributes from user \(oldAppUserID) to user \(newAppUserID)"
+
         }
     }
+
+    var category: String { return "attribution" }
 
 }

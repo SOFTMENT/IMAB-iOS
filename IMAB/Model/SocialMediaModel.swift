@@ -11,6 +11,6 @@ class SocialMediaModel :  NSObject, Codable {
     
     var name : String?
     var link : String?
-    
+    var id : String?
     
 }

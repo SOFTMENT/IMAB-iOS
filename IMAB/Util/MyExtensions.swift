@@ -6,14 +6,11 @@
 //
 
 import UIKit
-import FirebaseAuth
-import FirebaseFirestoreSwift
-import Firebase
+import AVFoundation
+import RevenueCat
 import MBProgressHUD
 import TTGSnackbar
-import GoogleSignIn
-import FirebaseFirestore
-import AVFoundation
+
 
 extension UIView {
     
@@ -161,35 +158,6 @@ extension Date {
 extension UIViewController {
 
     
-    func loginWithGoogle() {
-        guard let clientID = FirebaseApp.app()?.options.clientID else { return }
-        
-        // Create Google Sign In configuration object.
-        let config = GIDConfiguration(clientID: clientID)
-        
-        // Start the sign in flow!
-        GIDSignIn.sharedInstance.signIn(with: config, presenting: self) { [unowned self] user, error in
-            
-            if let error = error {
-                self.showError(error.localizedDescription)
-                return
-            }
-            
-            guard
-                let authentication = user?.authentication,
-                let idToken = authentication.idToken
-            else {
-                return
-            }
-            
-            let credential = GoogleAuthProvider.credential(withIDToken: idToken,
-                                                           accessToken: authentication.accessToken)
-            
-            authWithFirebase(credential: credential,type: "google", displayName: "")
-            
-        }
-    }
-    
     func showSnack(messages : String) {
         
         
@@ -215,13 +183,14 @@ extension UIViewController {
         ProgressHUDShow(text: "")
      
         
-        try?  Firestore.firestore().collection("Users").document(Auth.auth().currentUser!.uid).setData(from: userData,completion: { error in
-            MBProgressHUD.hide(for: self.view, animated: true)
+        try? FirebaseStoreManager.db.collection("Users").document(FirebaseStoreManager.auth.currentUser!.uid).setData(from: userData,completion: { error in
+            self.ProgressHUDHide()
             if error != nil {
                 self.showError(error!.localizedDescription)
             }
             else {
-                self.getUserData(uid: Auth.auth().currentUser!.uid, showProgress: true)
+            
+                self.getUserData(uid: FirebaseStoreManager.auth.currentUser!.uid, showProgress: true)
               
             }
            
@@ -229,10 +198,6 @@ extension UIViewController {
         
 
     }
-    
-
-    
-
     
     func membershipDaysLeft(currentDate : Date, expireDate : Date) -> Int {
         
@@ -255,21 +220,47 @@ extension UIViewController {
     }
     
 
+    func makeValidURL(urlString : String)->String{
+        let urlHasHttpPrefix = urlString.hasPrefix("http://")
+        let urlHasHttpsPrefix = urlString.hasPrefix("https://")
+        return (urlHasHttpPrefix || urlHasHttpsPrefix) ? urlString : "http://\(urlString)"
+    }
+    
+    func getHostData(uid : String, completion : @escaping (_ hostModel : UserModel?, _ error : String?)->Void){
+        FirebaseStoreManager.db.collection("Users").document(uid).getDocument { snapshot, error in
+            if let error = error {
+                completion(nil, error.localizedDescription)
+            }
+            else {
+                if let snapshot = snapshot, snapshot.exists {
+                    if let userModel = try? snapshot.data(as: UserModel.self) {
+                        completion(userModel, nil)
+                    }
+                    else {
+                        completion(nil,"Does not exist")
+                    }
+                }
+                else {
+                    completion(nil,"Does not exist")
+                }
+            }
+        }
+    }
     
     func getUserData(uid : String, showProgress : Bool)  {
         
-
+      
         
         if showProgress {
             ProgressHUDShow(text: "")
         }
         
-        Firestore.firestore().collection("Users").document(uid).getDocument { (snapshot, error) in
+        FirebaseStoreManager.db.collection("Users").document(uid).getDocument { (snapshot, error) in
             
             
             if error != nil {
                 if showProgress {
-                    MBProgressHUD.hide(for: self.view, animated: true)
+                    self.ProgressHUDHide()
                 }
                 self.showError(error!.localizedDescription)
             }
@@ -279,23 +270,46 @@ extension UIViewController {
                         
     
                     if let user = try? snapshot.data(as: UserModel.self) {
-                            UserModel.data = user
-                            
-                            let seconds = 2.0
-                            DispatchQueue.main.asyncAfter(deadline: .now() + seconds) {
-                                
-                                self.beRootScreen(mIdentifier: Constants.StroyBoard.tabBarViewController)
-                            }
-                          
+                         UserModel.data = user
                        
+                        if  let host  = user.host, host {
+                            
+                            
+                            if user.professionalCat == nil || user.professionalCat!.isEmpty {
+                               
+                                self.beRootScreen(mIdentifier: Constants.StroyBoard.updateHostProfileController)
+                            }
+                            else {
+                                Constants.expireDate = Date().addingTimeInterval(1000000);
+                                self.beRootScreen(mIdentifier: Constants.StroyBoard.tabBarViewController)
+                                
+//                                       Purchases.shared.getCustomerInfo { (customerInfo, error) in
+//                                           if customerInfo?.entitlements.all["Premium"]?.isActive == true {
+//                                               Constants.expireDate = customerInfo?.entitlements.all["Premium"]?.expirationDate ?? Date()
+//
+//
+//                                           }
+//                                           else {
+//                                               self.beRootScreen(mIdentifier: Constants.StroyBoard.updateHostProfileController)
+//                                           }
+//                                       }
+                              
+                            }
+           
+                            
+                        }
+                        else {
+                         
+                            self.beRootScreen(mIdentifier: Constants.StroyBoard.tabBarViewController)
                         }
                         
-                   
+                    }
                     
                 }
                 else {
+               
                     DispatchQueue.main.async {
-                        self.beRootScreen(mIdentifier: Constants.StroyBoard.signInViewController)
+                        self.beRootScreen(mIdentifier: Constants.StroyBoard.entryViewController)
                     }
                     
                 }
@@ -336,22 +350,25 @@ func getViewControllerUsingIdentifier(mIdentifier : String) -> UIViewController{
     case Constants.StroyBoard.hostProfileViewController :
         return (mainStoryboard.instantiateViewController(identifier: mIdentifier) as? HostProfileViewController)!
         
+   
+    case Constants.StroyBoard.entryViewController :
+        return (mainStoryboard.instantiateViewController(identifier: mIdentifier) as? EntryPageViewController)!
+        
+    case Constants.StroyBoard.updateHostProfileController :
+        return (mainStoryboard.instantiateViewController(identifier: mIdentifier) as? UpdateProfileViewController)!
         
     case Constants.StroyBoard.tabBarViewController :
-        return (mainStoryboard.instantiateViewController(identifier: mIdentifier) as? UITabBarController )!
- 
-        
-        
-
+        return (mainStoryboard.instantiateViewController(identifier: mIdentifier) as? TabBarViewController)!
+   
     default:
-        return (mainStoryboard.instantiateViewController(identifier: Constants.StroyBoard.signInViewController) as? SignInviewController)!
+        return (mainStoryboard.instantiateViewController(identifier: Constants.StroyBoard.entryViewController) as? EntryPageViewController)!
     }
 }
 
     func getAllSocialMedia(uid : String,completion: @escaping ((Array<SocialMediaModel>?)-> Void)) {
         
         var socialMediaModels = Array<SocialMediaModel>()
-        Firestore.firestore().collection("Users").document(uid).collection("SocialMedia").addSnapshotListener { snapshot, error in
+        FirebaseStoreManager.db.collection("Users").document(uid).collection("SocialMedia").addSnapshotListener { snapshot, error in
             
             if error != nil {
                 completion(nil)
@@ -372,11 +389,38 @@ func getViewControllerUsingIdentifier(mIdentifier : String) -> UIViewController{
             }
         }
     }
-    
+    func getAllEventsForFan(completion: @escaping ((Array<EventModel>?)-> Void)) {
+        
+        var eventModels = Array<EventModel>()
+        FirebaseStoreManager.db.collection("Events").order(by: "dateTime", descending: false).getDocuments { snapshot, error in
+            
+            if error != nil {
+                self.showError(error!.localizedDescription)
+                completion(nil)
+            }
+            else {
+                eventModels.removeAll()
+                if let snapshot = snapshot, !snapshot.isEmpty {
+                    for qdr in snapshot.documents {
+                        if let eventModel = try? qdr.data(as: EventModel.self) {
+                            if (eventModel.dateTime ?? Date()) >= Date() {
+                                eventModels.append(eventModel)
+                            }
+                            
+                        }
+                    }
+                    completion(eventModels)
+                }
+                else {
+                    completion(nil)
+                }
+            }
+        }
+    }
     func getAllEvents(uid : String,completion: @escaping ((Array<EventModel>?)-> Void)) {
         
         var eventModels = Array<EventModel>()
-        Firestore.firestore().collection("Events").whereField("uid", isEqualTo: uid).order(by: "eventCreateDate", descending: true).addSnapshotListener { snapshot, error in
+        FirebaseStoreManager.db.collection("Events").whereField("uid", isEqualTo: uid).order(by: "eventCreateDate", descending: true).addSnapshotListener { snapshot, error in
             
             if error != nil {
                 completion(nil)
@@ -454,7 +498,7 @@ func convertDateFormaterWithoutDash(_ date: Date) -> String
 func convertDateFormater(_ date: Date) -> String
 {
     let df = DateFormatter()
-    df.dateFormat = "dd-MMM-yyyy"
+    df.dateFormat = "MMM-dd-yyyy"
     df.timeZone = TimeZone(abbreviation: "UTC")
     df.timeZone = TimeZone.current
     return df.string(from: date)
@@ -596,78 +640,19 @@ func showMessage(title : String,message : String, shouldDismiss : Bool = false) 
 }
 
 
-func authWithFirebase(credential : AuthCredential, type : String,displayName : String) {
-    
-    ProgressHUDShow(text: "")
-    
-    Auth.auth().signIn(with: credential) { (authResult, error) in
-        MBProgressHUD.hide(for: self.view, animated: true)
-        if error != nil {
-            
-            self.showError(error!.localizedDescription)
-        }
-        else {
-            let user = authResult!.user
-            let ref =  Firestore.firestore().collection("Users").document(Auth.auth().currentUser!.uid)
-            ref.getDocument { (snapshot, error) in
-                if error != nil {
-                    self.showError(error!.localizedDescription)
-                }
-                else {
-                    if let doc = snapshot {
-                        if doc.exists {
-                            self.getUserData(uid: Auth.auth().currentUser!.uid, showProgress: true)
-                            
-                        }
-                        else {
-                            
-                         
-                            var emailId = ""
-                            let provider =  user.providerData
-                            var name = ""
-                            for firUserInfo in provider {
-                                if let email = firUserInfo.email {
-                                    emailId = email
-                                }
-                            }
-                            
-                            if type == "apple" {
-                                name = displayName
-                            }
-                            else {
-                                name = user.displayName!.capitalized
-                            }
-                            
-                          
-                            
-                            let userData = UserModel()
-                            userData.fullName = name
-                            userData.email = emailId
-                            userData.uid = user.uid
-                            userData.registredAt = user.metadata.creationDate ?? Date()
-                            userData.regiType = type
-                          
-                            self.addUserData(userData: userData)
-                        }
-                    }
-                    
-                }
-            }
-            
-        }
-        
-    }
-}
+
 
 
 public func logout(){
+    UserDefaults.standard.set("nil", forKey: "type")
     Constants.selectedIndex = 0
+    UserModel.clearUserData()
     do {
-        try Auth.auth().signOut()
-        self.beRootScreen(mIdentifier: Constants.StroyBoard.signInViewController)
+        try FirebaseStoreManager.auth.signOut()
+        self.beRootScreen(mIdentifier: Constants.StroyBoard.entryViewController)
     }
     catch {
-        self.beRootScreen(mIdentifier: Constants.StroyBoard.signInViewController)
+        self.beRootScreen(mIdentifier: Constants.StroyBoard.entryViewController)
     }
 }
 
@@ -760,9 +745,9 @@ extension UIView {
     func dropShadow(scale: Bool = true) {
         layer.masksToBounds = false
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.3
+        layer.shadowOpacity = 0.5
         layer.shadowOffset = .zero
-        layer.shadowRadius = 2
+        layer.shadowRadius = 3
         layer.shouldRasterize = true
         layer.rasterizationScale = scale ? UIScreen.main.scale : 1
     }

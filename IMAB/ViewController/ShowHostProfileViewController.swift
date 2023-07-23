@@ -6,7 +6,7 @@
 //
 
 import UIKit
-import Firebase
+
 import CoreLocation
 import GeoFire
 import EventKit
@@ -14,10 +14,34 @@ import EventKit
 class ShowHostProfileViewController : UIViewController {
     
     
+    
+    @IBOutlet weak var twitterCircle: CircleView!
+    @IBOutlet weak var instagramCircle: CircleView!
+    @IBOutlet weak var tiktokCircle: CircleView!
+    @IBOutlet weak var facebookCircle: CircleView!
+    @IBOutlet weak var youtubeCircle: CircleView!
+    @IBOutlet weak var rumCircle: CircleView!
+    @IBOutlet weak var twitchCircle: CircleView!
+    @IBOutlet weak var redditCircle: CircleView!
+    @IBOutlet weak var substackCircle: CircleView!
+    @IBOutlet weak var tumblrCircle: CircleView!
+    @IBOutlet weak var discordCircle: CircleView!
+    @IBOutlet weak var telegramCircle: CircleView!
+    @IBOutlet weak var truthCircle: CircleView!
+    @IBOutlet weak var mastodonCircle: CircleView!
+    @IBOutlet weak var pintrestCircle: CircleView!
+    @IBOutlet weak var etsyCircle: CircleView!
+    @IBOutlet weak var linkedinCircle: CircleView!
+    @IBOutlet weak var whatsAppCircle: CircleView!
+    
+    
+    @IBOutlet weak var noEventsAvailable: UILabel!
     @IBOutlet weak var addAllEventsToCalendar: UILabel!
+    @IBOutlet weak var userName: UILabel!
+    @IBOutlet weak var professional: UILabel!
     
-    @IBOutlet weak var website: UILabel!
-    
+  
+  
     @IBOutlet weak var profileImg: UIImageView!
     
  
@@ -32,42 +56,73 @@ class ShowHostProfileViewController : UIViewController {
     
     @IBOutlet weak var mDescription: UILabel!
 
-
     @IBOutlet weak var tableViewHeight: NSLayoutConstraint!
     
     @IBOutlet weak var tableView: UITableView!
     
     @IBOutlet weak var twitterView: UIView!
+    @IBOutlet weak var twitterNumber: UILabel!
     
-    @IBOutlet weak var linkedinView: UIView!
-    
-    @IBOutlet weak var redditView: UIView!
-    
-    @IBOutlet weak var facebookView: UIView!
-    
+
     @IBOutlet weak var instagramView: UIView!
+    @IBOutlet weak var instagramNumber: UILabel!
     
-    @IBOutlet weak var snapchatView: UIView!
-    
-    @IBOutlet weak var youtubeView: UIView!
     
     @IBOutlet weak var tiktokView: UIView!
+    @IBOutlet weak var tikTokNumber: UILabel!
     
+    
+    @IBOutlet weak var facebookView: UIView!
+    @IBOutlet weak var facebookNumber: UILabel!
+    
+    
+    @IBOutlet weak var youtubeView: UIView!
+    @IBOutlet weak var youtubeNumber: UILabel!
+    
+    
+    @IBOutlet weak var rumView: UIView!
+    @IBOutlet weak var rumNumber: UILabel!
+    
+    @IBOutlet weak var twitchView: UIView!
+    @IBOutlet weak var twitchNumber: UILabel!
+    
+    @IBOutlet weak var redditView: UIView!
+    @IBOutlet weak var redditNumber: UILabel!
+
+    @IBOutlet weak var substackView: UIView!
+    @IBOutlet weak var substackNumber: UILabel!
+    
+    @IBOutlet weak var tumblr: UIView!
+    @IBOutlet weak var tumblrNumer: UILabel!
+
+    @IBOutlet weak var discordView: UIView!
+    @IBOutlet weak var discordNumber: UILabel!
+   
+    @IBOutlet weak var telegramView: UIView!
+    @IBOutlet weak var telegramNumber: UILabel!
+
+    @IBOutlet weak var truthSocialView: UIView!
+    @IBOutlet weak var truthSocialNumber: UILabel!
+    
+    @IBOutlet weak var mastodonView: UIView!
+    @IBOutlet weak var mastodonNumber: UILabel!
+ 
     @IBOutlet weak var pintrestView: UIView!
+    @IBOutlet weak var pintrestNumber: UILabel!
+ 
+    @IBOutlet weak var etsyView: UIView!
+    @IBOutlet weak var etsyNumber: UILabel!
     
-    var facebookURL = ""
-    var twitterURL = ""
-    var linkedinURL = ""
-    var redditURL = ""
-    var instagramURL = ""
-    var snapchatURL = ""
-    var youtubeURL = ""
-    var tiktokURL = ""
-    var pintrestURL = ""
+    @IBOutlet weak var linkedinView: UIView!
+    @IBOutlet weak var linkedinNumber: UILabel!
+
+    @IBOutlet weak var whatsAppView: UIView!
+    @IBOutlet weak var whatsAppNumber: UILabel!
+
+    var socialMediaModels = Array<SocialMediaModel>()
     
-    var socialMediaModels : Array<SocialMediaModel>?
     var eventModels = Array<EventModel>()
-    var hostModel : HostModel?
+    var hostModel : UserModel?
     override func viewDidLoad() {
         
         guard let hostModel = hostModel else {
@@ -83,43 +138,15 @@ class ShowHostProfileViewController : UIViewController {
             profileImg.sd_setImage(with: URL(string: image), placeholderImage: UIImage(named: "placeholder"), progress: .none)
         }
         
-    
-        website.text = hostModel.websiteURL ?? ""
-        website.isUserInteractionEnabled = true
-        website.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(websiteClicked)))
+        userName.text = "@\(hostModel.userName ?? "NIL")"
+        professional.text = hostModel.professionalCat ?? "NIL"
         
         profileName.text = hostModel.fullName ?? ""
         mDescription.text = hostModel.myDescription ?? ""
         
         followersView.layer.cornerRadius = 6
       
-        
-        facebookView.isUserInteractionEnabled = true
-        facebookView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(facebookViewClicked)))
-        
-        instagramView.isUserInteractionEnabled = true
-        instagramView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(instagramViewClicked)))
-        
-        twitterView.isUserInteractionEnabled = true
-        twitterView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(twitterViewClicked)))
-        
-        tiktokView.isUserInteractionEnabled = true
-        tiktokView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tikTokViewClicked)))
-        
-        youtubeView.isUserInteractionEnabled = true
-        youtubeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(youtubeViewClicked)))
-        
-        pintrestView.isUserInteractionEnabled = true
-        pintrestView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(pintrestViewClicked)))
-        
-        redditView.isUserInteractionEnabled = true
-        redditView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(redditViewClicked)))
-        
-        snapchatView.isUserInteractionEnabled = true
-        snapchatView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(snapchatViewClicked)))
-        
-        linkedinView.isUserInteractionEnabled = true
-        linkedinView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(linkedinViewClicked)))
+       
         
         tableView.delegate = self
         tableView.dataSource = self
@@ -128,60 +155,7 @@ class ShowHostProfileViewController : UIViewController {
         backView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(backViewClicked)))
         backView.layer.cornerRadius = 8
         
-      
-        
-        ProgressHUDShow(text: "")
-        self.getAllSocialMedia(uid:hostModel.uid ?? "123") { sModel in
-            self.ProgressHUDHide()
-            if let socialMediaModel = sModel {
-                self.socialMediaModels = sModel
-                for model in socialMediaModel {
-                
-                    if let name = model.name {
-                        if name.contains(Constants.SocialMedia.Facebook) {
-                            self.facebookView.isHidden = false
-                            self.facebookURL = model.link ?? ""
-                        
-                        }
-                        else if name.contains(Constants.SocialMedia.YouTube) {
-                            self.youtubeView.isHidden = false
-                            self.youtubeURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.Twitter) {
-                            self.twitterView.isHidden = false
-                            self.twitterURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.TikTok) {
-                            self.tiktokView.isHidden = false
-                            self.tiktokURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.Snapchat) {
-                            self.snapchatView.isHidden = false
-                            self.snapchatURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.Reddit) {
-                            self.redditView.isHidden = false
-                            self.redditURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.Pintrest) {
-                            self.pintrestView.isHidden = false
-                            self.pintrestURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.Instagram) {
-                            self.instagramView.isHidden = false
-                            self.instagramURL = model.link ?? ""
-                        }
-                        else if name.contains(Constants.SocialMedia.Linkedin) {
-                            self.linkedinView.isHidden = false
-                            self.linkedinURL = model.link ?? ""
-                        }
-                        
-                    }
-                }
-            }
-
-        }
-        
+    
         followersView.isUserInteractionEnabled = true
         followersView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(followClicked)))
         
@@ -198,7 +172,7 @@ class ShowHostProfileViewController : UIViewController {
             self.tableView.reloadData()
         }
         
-        Firestore.firestore().collection("Users").document(Auth.auth().currentUser!.uid).collection("Follow").document(hostModel.uid ?? "123").getDocument { snapshot, error in
+        FirebaseStoreManager.db.collection("Users").document(FirebaseStoreManager.auth.currentUser!.uid).collection("Follow").document(hostModel.uid ?? "123").getDocument { snapshot, error in
             if error == nil {
                 if let snapshot = snapshot, snapshot.exists{
                     self.followersView.backgroundColor = UIColor(red: 0, green: 0, blue: 0, alpha: 0.1)
@@ -207,8 +181,373 @@ class ShowHostProfileViewController : UIViewController {
             }
         }
         
+        twitterView.isUserInteractionEnabled = true
+        let gest1 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest1.socialType = .Twitter
+        twitterView.addGestureRecognizer(gest1)
+        
+        instagramView.isUserInteractionEnabled = true
+        let gest2 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest2.socialType = .Instagram
+        instagramView.addGestureRecognizer(gest2)
+        
+        tiktokView.isUserInteractionEnabled = true
+        let gest3 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest3.socialType = .TikTok
+        tiktokView.addGestureRecognizer(gest3)
+        
+        facebookView.isUserInteractionEnabled = true
+        let gest4 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest4.socialType = .Facebook
+        facebookView.addGestureRecognizer(gest4)
+        
+        youtubeView.isUserInteractionEnabled = true
+        let gest5 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest5.socialType = .YouTube
+        youtubeView.addGestureRecognizer(gest5)
+        
+        rumView.isUserInteractionEnabled = true
+        let gest6 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest6.socialType = .Rumble
+        rumView.addGestureRecognizer(gest6)
+        
+        twitchView.isUserInteractionEnabled = true
+        let gest7 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest7.socialType = .Twitch
+        twitchView.addGestureRecognizer(gest7)
+        
+        redditView.isUserInteractionEnabled = true
+        let gest8 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest8.socialType = .Reddit
+        redditView.addGestureRecognizer(gest8)
+        
+        substackView.isUserInteractionEnabled = true
+        let gest9 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest9.socialType = .Substack
+        substackView.addGestureRecognizer(gest9)
+        
+        tumblr.isUserInteractionEnabled = true
+        let gest10 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest10.socialType = .Tumblr
+        tumblr.addGestureRecognizer(gest10)
+        
+        discordView.isUserInteractionEnabled = true
+        let gest11 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest11.socialType = .Discord
+        discordView.addGestureRecognizer(gest11)
+        
+        telegramView.isUserInteractionEnabled = true
+        let gest12 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest12.socialType = .Telegram
+        telegramView.addGestureRecognizer(gest12)
+        
+        truthSocialView.isUserInteractionEnabled = true
+        let gest13 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest13.socialType = .TruthSocial
+        truthSocialView.addGestureRecognizer(gest13)
+        
+        mastodonView.isUserInteractionEnabled = true
+        let gest14 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest14.socialType = .Mastodon
+        mastodonView.addGestureRecognizer(gest14)
+        
+        pintrestView.isUserInteractionEnabled = true
+        let gest15 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest15.socialType = .Pinterest
+        pintrestView.addGestureRecognizer(gest15)
+        
+        etsyView.isUserInteractionEnabled = true
+        let gest16 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest16.socialType = .Etsy
+        etsyView.addGestureRecognizer(gest16)
+        
+        linkedinView.isUserInteractionEnabled = true
+        let gest17 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest17.socialType = .LinkedIn
+        linkedinView.addGestureRecognizer(gest17)
+        
+        whatsAppView.isUserInteractionEnabled = true
+        let gest18 = MyGesture(target: self, action: #selector(socialViewClicked))
+        gest18.socialType = .Whatsapp
+        whatsAppView.addGestureRecognizer(gest18)
+        
+        getAllSocialMedia(uid: hostModel.uid ?? "123") { socialMediaModels in
+            self.hideAllSocialMedia()
+        
+            if let socialMediaModels = socialMediaModels {
+                self.socialMediaModels.removeAll()
+                self.socialMediaModels.append(contentsOf: socialMediaModels)
+                for model in socialMediaModels {
+                    if model.name == SocialMedia.Twitter.rawValue {
+                      
+                        self.twitterView.isHidden = false
+                        self.twitterNumber.text = String((Int(self.twitterNumber.text ?? "1") ?? 1) + 1)
+                       
+                        if (Int(self.twitterNumber.text ?? "1") ?? 1) > 1 {
+                            self.twitterCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Instagram.rawValue {
+                        self.instagramView.isHidden = false
+                        self.instagramNumber.text = String((Int(self.instagramNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.instagramNumber.text ?? "1") ?? 1) > 1 {
+                            self.instagramCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.TikTok.rawValue {
+                        self.tiktokView.isHidden = false
+                        self.tikTokNumber.text = String((Int(self.tikTokNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.tikTokNumber.text ?? "1") ?? 1) > 1 {
+                            self.tiktokCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Facebook.rawValue {
+                        self.facebookView.isHidden = false
+                        self.facebookNumber.text = String((Int(self.facebookNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.facebookNumber.text ?? "1") ?? 1) > 1 {
+                            self.facebookCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.YouTube.rawValue {
+                        self.youtubeView.isHidden = false
+                        self.youtubeNumber.text = String((Int(self.youtubeNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.youtubeNumber.text ?? "1") ?? 1) > 1 {
+                            self.youtubeCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Rumble.rawValue {
+                        self.rumView.isHidden = false
+                        self.rumNumber.text = String((Int(self.rumNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.rumNumber.text ?? "1") ?? 1) > 1 {
+                            self.rumCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Twitch.rawValue {
+                        self.twitchView.isHidden = false
+                        self.twitchNumber.text = String((Int(self.twitchNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.twitchNumber.text ?? "1") ?? 1) > 1 {
+                            self.twitchCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Reddit.rawValue {
+                        self.redditView.isHidden = false
+                        self.redditNumber.text = String((Int(self.redditNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.redditNumber.text ?? "1") ?? 1) > 1 {
+                            self.redditCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Substack.rawValue {
+                        self.substackView.isHidden = false
+                        self.substackNumber.text = String((Int(self.substackNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.substackNumber.text ?? "1") ?? 1) > 1 {
+                            self.substackCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Tumblr.rawValue {
+                        self.tumblr.isHidden = false
+                        self.tumblrNumer.text = String((Int(self.tumblrNumer.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.tumblrNumer.text ?? "1") ?? 1) > 1 {
+                            self.tumblrCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Discord.rawValue {
+                        self.discordView.isHidden = false
+                        self.discordNumber.text = String((Int(self.discordNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.discordNumber.text ?? "1") ?? 1) > 1 {
+                            self.discordCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Telegram.rawValue {
+                        self.telegramView.isHidden = false
+                        self.telegramNumber.text = String((Int(self.telegramNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.telegramNumber.text ?? "1") ?? 1) > 1 {
+                            self.telegramCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.TruthSocial.rawValue {
+                        self.truthSocialView.isHidden = false
+                        self.truthSocialNumber.text = String((Int(self.truthSocialNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.truthSocialNumber.text ?? "1") ?? 1) > 1 {
+                            self.truthCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Mastodon.rawValue {
+                        self.mastodonView.isHidden = false
+                        self.mastodonNumber.text = String((Int(self.mastodonNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.mastodonNumber.text ?? "1") ?? 1) > 1 {
+                            self.mastodonCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Pinterest.rawValue {
+                        self.pintrestView.isHidden = false
+                        self.pintrestNumber.text = String((Int(self.pintrestNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.pintrestNumber.text ?? "1") ?? 1) > 1 {
+                            self.pintrestCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Etsy.rawValue {
+                        self.etsyView.isHidden = false
+                        self.etsyNumber.text = String((Int(self.etsyNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.etsyNumber.text ?? "1") ?? 1) > 1 {
+                            self.etsyCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.LinkedIn.rawValue {
+                        self.linkedinView.isHidden = false
+                        self.linkedinNumber.text = String((Int(self.linkedinNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.linkedinNumber.text ?? "1") ?? 1) > 1 {
+                            self.linkedinCircle.isHidden = false
+                        }
+                    }
+                    else if model.name == SocialMedia.Whatsapp.rawValue {
+                        self.whatsAppView.isHidden = false
+                        self.whatsAppNumber.text = String((Int(self.whatsAppNumber.text ?? "1") ?? 1) + 1)
+                        
+                        if (Int(self.whatsAppNumber.text ?? "1") ?? 1) > 1 {
+                            self.whatsAppCircle.isHidden = false
+                        }
+                    }
+                    
+                }
+            }
+            
+        }
+        
+        
     }
     
+    
+    func hideAllSocialMedia(){
+        twitterView.isHidden = true
+        twitterNumber.text = "0"
+        twitterCircle.isHidden = true
+        
+        instagramView.isHidden = true
+        instagramNumber.text = "0"
+        instagramCircle.isHidden = true
+        
+        tiktokView.isHidden = true
+        tikTokNumber.text = "0"
+        tiktokCircle.isHidden = true
+        
+        facebookView.isHidden = true
+        facebookNumber.text = "0"
+        facebookCircle.isHidden = true
+        
+        youtubeView.isHidden = true
+        youtubeNumber.text = "0"
+        youtubeCircle.isHidden = true
+        
+        rumView.isHidden = true
+        rumNumber.text = "0"
+        rumCircle.isHidden = true
+        
+        twitchView.isHidden = true
+        twitchNumber.text = "0"
+        twitchCircle.isHidden = true
+        
+        redditView.isHidden = true
+        redditNumber.text = "0"
+        redditCircle.isHidden = true
+        
+        substackView.isHidden = true
+        substackNumber.text = "0"
+        substackCircle.isHidden = true
+        
+        tumblr.isHidden = true
+        tumblrNumer.text = "0"
+        tumblrCircle.isHidden = true
+        
+        discordView.isHidden = true
+        discordNumber.text = "0"
+        
+        telegramView.isHidden = true
+        telegramNumber.text = "0"
+        telegramCircle.isHidden = true
+        
+        truthSocialView.isHidden = true
+        truthSocialNumber.text = "0"
+        truthCircle.isHidden = true
+        
+        mastodonView.isHidden = true
+        mastodonNumber.text = "0"
+        mastodonCircle.isHidden = true
+        
+        pintrestView.isHidden = true
+        pintrestNumber.text = "0"
+        pintrestCircle.isHidden = true
+        
+        etsyView.isHidden = true
+        etsyNumber.text = "0"
+        etsyCircle.isHidden = true
+        
+        linkedinView.isHidden = true
+        linkedinNumber.text = "0"
+        linkedinCircle.isHidden = true
+        
+        whatsAppView.isHidden = true
+        whatsAppNumber.text = "0"
+        whatsAppCircle.isHidden = true
+    }
+    
+    
+    
+    @objc func buyTicketsClicked(value : MyGesture){
+        guard let url = URL(string: self.makeValidURL(urlString: eventModels[value.index].ticketLink ?? "")) else { return}
+        UIApplication.shared.open(url)
+    }
+    
+  
+    
+    @objc func socialViewClicked(value : MyGesture){
+        
+        let models = socialMediaModels.filter { model in
+            if model.name == value.socialType!.rawValue {
+                return true
+            }
+            return false
+        }
+        
+        if models.count > 1 {
+            self.showAlertForOpen(models: models)
+        }
+        else {
+        
+            guard let url = URL(string: makeValidURL(urlString: models.first!.link ?? "")) else { return}
+            UIApplication.shared.open(url)
+        }
+           
+        
+    }
+    
+    
+     func showAlertForOpen(models : Array<SocialMediaModel>){
+         let alert = UIAlertController(title: nil, message: "Select Account", preferredStyle: .actionSheet)
+         for model in models {
+             alert.addAction(UIAlertAction(title: model.link ?? "NIL", style: .default,handler: { action in
+                 guard let url = URL(string: self.makeValidURL(urlString: model.link ?? "")) else { return}
+                 UIApplication.shared.open(url)
+             }))
+         }
+         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+         present(alert, animated: true)
+    }
     @objc func addAllEventsToCalendarClicked() {
        
             let eventStore : EKEventStore = EKEventStore()
@@ -239,7 +578,7 @@ class ShowHostProfileViewController : UIViewController {
                             event.title = eventModel.name ?? ""
                             event.startDate = eventModel.date ?? Date()
                             event.endDate = nextDate ?? Date()
-                            event.notes = eventModel.address ?? ""
+                            event.notes = eventModel.eventAddress ?? ""
                             event.calendar = eventStore.defaultCalendarForNewEvents
                             do {
                                 
@@ -279,20 +618,20 @@ class ShowHostProfileViewController : UIViewController {
         let followModel =  FollowModel()
         followModel.name = hostModel!.fullName ?? ""
         followModel.uid = hostModel!.uid ?? "123"
-        try? Firestore.firestore().collection("Users").document(Auth.auth().currentUser!.uid).collection("Follow").document(hostModel!.uid ?? "123").setData(from: followModel)
+        try? FirebaseStoreManager.db.collection("Users").document(FirebaseStoreManager.auth.currentUser!.uid).collection("Follow").document(hostModel!.uid ?? "123").setData(from: followModel)
         
         followModel.name = UserModel.data!.fullName ?? ""
         followModel.uid = UserModel.data!.uid ?? "123"
-        try? Firestore.firestore().collection("Users").document(hostModel!.uid ?? "123").collection("Following").document(Auth.auth().currentUser!.uid).setData(from: followModel)
+        try? FirebaseStoreManager.db.collection("Users").document(hostModel!.uid ?? "123").collection("Following").document(FirebaseStoreManager.auth.currentUser!.uid).setData(from: followModel)
     }
     
     func removeFollow(){
        
-      Firestore.firestore().collection("Users").document(Auth.auth().currentUser!.uid).collection("Follow").document(hostModel!.uid ?? "123").delete()
-        Firestore.firestore().collection("Users").document(hostModel!.uid ?? "123").collection("Following").document(Auth.auth().currentUser!.uid).delete()
+        FirebaseStoreManager.db.collection("Users").document(FirebaseStoreManager.auth.currentUser!.uid).collection("Follow").document(hostModel!.uid ?? "123").delete()
+        FirebaseStoreManager.db.collection("Users").document(hostModel!.uid ?? "123").collection("Following").document(FirebaseStoreManager.auth.currentUser!.uid).delete()
     }
     
-    @objc func addToCalendar(gest : MyGest) {
+    @objc func addToCalendar(gest : MyGesture) {
       
         
         let eventStore : EKEventStore = EKEventStore()
@@ -303,7 +642,7 @@ class ShowHostProfileViewController : UIViewController {
           
           if (granted) && (error == nil) {
               
-              let eventModel = self.eventModels[gest.position]
+              let eventModel = self.eventModels[gest.index]
               let event : EKEvent = EKEvent(eventStore: eventStore)
               
               var dayComponent    = DateComponents()
@@ -328,7 +667,7 @@ class ShowHostProfileViewController : UIViewController {
                   event.title = eventModel.name ?? ""
                   event.startDate = eventModel.date ?? Date()
                   event.endDate = nextDate ?? Date()
-                  event.notes = eventModel.address ?? ""
+                  event.notes = eventModel.eventAddress ?? ""
                   event.calendar = eventStore.defaultCalendarForNewEvents
                   do {
                       
@@ -351,14 +690,10 @@ class ShowHostProfileViewController : UIViewController {
         }
     }
     
-    @objc func websiteClicked(){
-        guard let url = URL(string: website.text ?? "") else { return}
-        UIApplication.shared.open(url)
-    }
+    
     
     @objc func backViewClicked(){
-        Constants.selectedIndex = 3
-        self.beRootScreen(mIdentifier: Constants.StroyBoard.tabBarViewController)
+        self.dismiss(animated: true)
         
     }
     
@@ -374,101 +709,23 @@ class ShowHostProfileViewController : UIViewController {
     
   
     
-    @objc func facebookViewClicked(){
-        guard let url = URL(string: facebookURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func instagramViewClicked(){
-        guard let url = URL(string: instagramURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func twitterViewClicked(){
-        guard let url = URL(string: twitterURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func tikTokViewClicked(){
-        guard let url = URL(string: tiktokURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func youtubeViewClicked(){
-        guard let url = URL(string: youtubeURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func pintrestViewClicked(){
-        guard let url = URL(string: pintrestURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func redditViewClicked(){
-        guard let url = URL(string: redditURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func snapchatViewClicked(){
-        guard let url = URL(string: snapchatURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-    @objc func linkedinViewClicked(){
-        guard let url = URL(string: linkedinURL) else { return}
-        UIApplication.shared.open(url)
-    }
-    
-
-    @objc func cellClicked(value : MyGest){
-        let eventModel = eventModels[value.position]
-        
-        if let buyTicket = eventModel.ticketLink, !buyTicket.isEmpty {
-            let alert = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
-            alert.addAction(UIAlertAction(title: "Buy Ticket", style: .default,handler: { action in
-                guard let url = URL(string: buyTicket) else { return}
-                UIApplication.shared.open(url)
-            }))
-            
-            alert.addAction(UIAlertAction(title: "Open Map", style: .default, handler: { action in
-                self.showOpenMapPopup(latitude: eventModel.latitude ?? 0, longitude: eventModel.longitude ?? 0)
-            }))
-            
-            alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-            present(alert, animated: true)
+   
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        if segue.identifier == "hosteventDetailsSeg" {
+            if let VC = segue.destination as? EventDetailsViewController {
+                if let eventModel = sender as? EventModel {
+                    VC.eventModel = eventModel
+                }
+            }
         }
-        else {
-            self.showOpenMapPopup(latitude: eventModel.latitude ?? 0, longitude: eventModel.longitude ?? 0)
-        }
-       
+    }
+    @objc func cellClicked(gest : MyGesture) {
+        performSegue(withIdentifier: "hosteventDetailsSeg", sender: eventModels[gest.index])
     }
     
 
     
-    func showOpenMapPopup(latitude : Double, longitude : Double){
-        let alert = UIAlertController(title: "Open in maps", message: nil, preferredStyle: .actionSheet)
-        alert.addAction(UIAlertAction(title: "Apple Maps", style: .default, handler: { action in
-            
-            let coordinate = CLLocationCoordinate2DMake(latitude,longitude)
-            let mapItem = MKMapItem(placemark: MKPlacemark(coordinate: coordinate, addressDictionary:nil))
-            mapItem.name = "Shop Location"
-            mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey : MKLaunchOptionsDirectionsModeDriving])
-        }))
-        
-        if (UIApplication.shared.canOpenURL(URL(string:"comgooglemaps://")!)) {
-            
-            alert.addAction(UIAlertAction(title: "Google Maps", style: .default, handler: { action in
-                
-                UIApplication.shared.open(URL(string:"comgooglemaps://?center=\(latitude),\(longitude)&zoom=14&views=traffic&q=\(latitude),\(longitude)")!, options: [:], completionHandler: nil)
-            }))
-        }
-        
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { action in
-            alert.dismiss(animated: true, completion: nil)
-        }))
-        
-        present(alert, animated: true, completion: nil)
-    }
+    
 }
 
 
@@ -476,6 +733,7 @@ class ShowHostProfileViewController : UIViewController {
 extension ShowHostProfileViewController : UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        noEventsAvailable.isHidden = eventModels.count > 0 ? true : false
         return eventModels.count
     }
     
@@ -486,39 +744,58 @@ extension ShowHostProfileViewController : UITableViewDelegate, UITableViewDataSo
             
             
             cell.mView.layer.cornerRadius = 8
-            cell.mapView.layer.cornerRadius = 6
-            
             cell.mView.isUserInteractionEnabled = true
-            let myGest = MyGest(target: self, action: #selector(cellClicked(value: )))
-            myGest.position = indexPath.row
+            let myGest = MyGesture(target: self, action: #selector(cellClicked(gest: )))
+            myGest.index = indexPath.row
             cell.mView.addGestureRecognizer(myGest)
             
             let eventModel = eventModels[indexPath.row]
             cell.eventName.text = eventModel.name ?? ""
-            cell.eventDate.text = self.convertDateFormater(eventModel.date ?? Date())
-            cell.eventTime.text = self.convertTimeFormater(eventModel.date ?? Date())
-            cell.eventAddress.text = eventModel.address ?? ""
-            let coordinate = CLLocationCoordinate2D(latitude: eventModel.latitude ?? 0, longitude: eventModel.longitude ?? 0)
-            cell.setCoordinatesOnMap(with: coordinate)
-            cell.mapView.delegate = self
-            cell.mapView.isUserInteractionEnabled = true
             
-            cell.addToCalendarView.isUserInteractionEnabled = true
-            cell.addToCalendarView.layer.cornerRadius = 8
-            cell.addToCalendarView.layer.borderColor = UIColor.gray.cgColor
-            cell.addToCalendarView.layer.borderWidth = 0.8
+            cell.addEventToCalendar.isUserInteractionEnabled = true
+            cell.addEventToCalendar.layer.cornerRadius = 8
+            let calendarGest = MyGesture(target: self, action: #selector(addToCalendar(gest:)))
+            calendarGest.index = indexPath.row
+            cell.addEventToCalendar.addGestureRecognizer(calendarGest)
             
-            let calendarGest = MyGest(target: self, action: #selector(addToCalendar(gest: )))
-            calendarGest.position = indexPath.row
-            cell.addToCalendarView.addGestureRecognizer(calendarGest)
-            
-            let totalRow = tableView.numberOfRows(inSection: indexPath.section)
-            if(indexPath.row == totalRow - 1)
-            {
-                DispatchQueue.main.async {
-                    self.updateTableViewHeight()
-                }
+            if let ticket = eventModel.ticketLink, !ticket.isEmpty {
+                cell.buyTickets.isHidden = false
             }
+            else {
+                cell.buyTickets.isHidden = true
+            }
+            
+            cell.buyTickets.isUserInteractionEnabled = true
+            cell.buyTickets.layer.cornerRadius = 8
+            let ticketGest = MyGesture(target: self, action: #selector(buyTicketsClicked(value: )))
+            ticketGest.index = indexPath.row
+            cell.buyTickets.addGestureRecognizer(ticketGest)
+            
+            cell.eventDate.text = self.convertDateFormater(eventModel.date ?? Date())
+            if let time = eventModel.time {
+                cell.eventTime.text = self.convertDateIntoTimeForRecurringVoucher(time)
+            }
+            else {
+                cell.eventTime.isHidden = true
+            }
+         
+            if eventModel.eventType == "online" {
+                cell.eventAddress.text = "Online"
+            }
+            else {
+                cell.eventAddress.text = eventModel.eventAddress ?? ""
+            }
+            
+            cell.eventImage.layer.cornerRadius = 8
+           
+            if let path = eventModel.eventImage, !path.isEmpty {
+                cell.eventImage.sd_setImage(with: URL(string: path), placeholderImage: UIImage(named: "placeholder"))
+            }
+           
+            DispatchQueue.main.async {
+                self.updateTableViewHeight()
+            }
+            
             return cell
             
         }
@@ -530,13 +807,4 @@ extension ShowHostProfileViewController : UITableViewDelegate, UITableViewDataSo
     
     
 }
-
-extension ShowHostProfileViewController : MKMapViewDelegate  {
-    func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-        if let annotation = view.annotation {
-            self.showOpenMapPopup(latitude: annotation.coordinate.latitude, longitude: annotation.coordinate.longitude)
-            
-        }
-        
-    }
-}
+                 

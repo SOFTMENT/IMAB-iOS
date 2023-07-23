@@ -6,17 +6,16 @@
 //
 
 import UIKit
-import FirebaseFirestore
-import FirebaseFirestoreSwift
-import Firebase
+
+
 
 class WelcomeViewController :  UIViewController {
-   
+    
     let userDefaults = UserDefaults.standard
     override func viewDidLoad() {
         
         //SUBSCRIBE TO TOPIC
-        Messaging.messaging().subscribe(toTopic: "imab"){ error in
+        FirebaseStoreManager.message.subscribe(toTopic: "imab"){ error in
             if error == nil{
                 print("Subscribed to topic")
             }
@@ -31,60 +30,29 @@ class WelcomeViewController :  UIViewController {
             userDefaults.setValue(true, forKey: "appFirstTimeOpend")
             // signOut from FIRAuth
             do {
-                try Auth.auth().signOut()
+                try FirebaseStoreManager.auth.signOut()
             }catch {
-
+                
             }
             // go to beginning of app
         }
         
-
-      
-        
-        if Auth.auth().currentUser != nil {
-          
-                Auth.auth().currentUser!.getIDTokenResult(forcingRefresh: true) { result, error in
-                    if error == nil {
-                        if let result = result {
-                            
-                            print(result.signInProvider)
-                            if result.signInProvider == "password"  {
-                           
-                              
-                                self.getUserData(uid: Auth.auth().currentUser!.uid, showProgress: false)
-                         
-                          
-                        }
-                        else {
-                            
-                            self.getUserData(uid: Auth.auth().currentUser!.uid, showProgress: false)
-                        }
-                        
-                        
-                    }
-                    
-                    }
-                else {
-                    self.getUserData(uid: Auth.auth().currentUser!.uid, showProgress: false)
-                }
-                }
-            
-         
-            }
-                else {
-         
-               self.gotoSignInViewController()
-            
+        if FirebaseStoreManager.auth.currentUser != nil {
+            self.getUserData(uid: FirebaseStoreManager.auth.currentUser!.uid, showProgress: false)
+       
         }
-             
-          
+        else {
+            gotoSignInViewController()
+        }
         
-               
+        
+        
+        
     }
     
     func gotoSignInViewController(){
         DispatchQueue.main.async {
-            self.beRootScreen(mIdentifier: Constants.StroyBoard.signInViewController)
+            self.beRootScreen(mIdentifier: Constants.StroyBoard.entryViewController)
         }
     }
     

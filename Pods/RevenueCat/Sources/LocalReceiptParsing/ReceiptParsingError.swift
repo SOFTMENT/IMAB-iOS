@@ -15,33 +15,60 @@
 
 import Foundation
 
-enum ReceiptReadingError: Error, Equatable {
+extension PurchasesReceiptParser {
 
-    case missingReceipt,
-         emptyReceipt,
-         dataObjectIdentifierMissing,
-         asn1ParsingError(description: String),
-         receiptParsingError,
-         inAppPurchaseParsingError
+    /// An error thrown by ``PurchasesReceiptParser``
+    public enum Error: Swift.Error {
 
+        /// The data object identifier couldn't be found on the receipt.
+        case dataObjectIdentifierMissing
+
+        /// Unable to parse ASN1 container.
+        case asn1ParsingError(description: String)
+
+        /// Internal container was empty.
+        case receiptParsingError
+
+        /// Failed to parse IAP.
+        case inAppPurchaseParsingError
+
+        /// ``PurchasesReceiptParser/parse(base64String:)`` was unable
+        /// to decode the base64 string.
+        case failedToDecodeBase64String
+
+        /// `Bundle.appStoreReceiptURL` returned `nil`.
+        case receiptNotPresent
+
+        /// Fetching the local receipt failed with an underlying error
+        case failedToLoadLocalReceipt(Swift.Error)
+
+        /// The receipt found on the device was found empty.
+        case foundEmptyLocalReceipt
+
+    }
 }
 
-extension ReceiptReadingError: LocalizedError {
+extension PurchasesReceiptParser.Error: LocalizedError {
 
-    var errorDescription: String? {
+    // swiftlint:disable:next missing_docs
+    public var errorDescription: String? {
         switch self {
-        case .missingReceipt:
-            return "The receipt couldn't be found"
-        case .emptyReceipt:
-            return "The receipt is empty"
         case .dataObjectIdentifierMissing:
             return "Couldn't find an object identifier of type data in the receipt"
-        case .asn1ParsingError(let description):
+        case let .asn1ParsingError(description):
             return "Error while parsing, payload can't be interpreted as ASN1. details: \(description)"
         case .receiptParsingError:
             return "Error while parsing the receipt. One or more attributes are missing."
         case .inAppPurchaseParsingError:
             return "Error while parsing in-app purchase. One or more attributes are missing or in the wrong format."
+        case .failedToDecodeBase64String:
+            return "Error decoding base64 string."
+        case .receiptNotPresent:
+            return "Error loading local receipt: Bundle.appStoreReceiptURL was nil."
+        case let .failedToLoadLocalReceipt(error):
+            return "Error loading local receipt: \(error)"
+        case .foundEmptyLocalReceipt:
+            return "Loaded receipt was found empty."
         }
     }
 

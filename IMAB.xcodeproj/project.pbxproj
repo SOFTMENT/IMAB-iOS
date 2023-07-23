@@ -7,8 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3E75EDAC69F89E8AC0E90561 /* Pods_IMAB.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6063AA49115C9B459AAB3395 /* Pods_IMAB.framework */; };
-		5D23AE8E297226D9005EF56F /* EditProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE8D297226D9005EF56F /* EditProfileViewController.swift */; };
+		5D1017B62A0634CA002C16F0 /* FirebaseStoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1017B52A0634CA002C16F0 /* FirebaseStoreManager.swift */; };
+		5D1017B82A0638FA002C16F0 /* CompleteHostProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1017B72A0638FA002C16F0 /* CompleteHostProfileViewController.swift */; };
+		5D1017BA2A070D89002C16F0 /* FanRegistrationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D1017B92A070D89002C16F0 /* FanRegistrationViewController.swift */; };
+		5D20044F2A3C56C800ECB76B /* EditHostProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D20044E2A3C56C800ECB76B /* EditHostProfileViewController.swift */; };
+		5D2004512A3CFF4200ECB76B /* CircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D2004502A3CFF4200ECB76B /* CircleView.swift */; };
+		5D23AE8E297226D9005EF56F /* UpdateProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE8D297226D9005EF56F /* UpdateProfileViewController.swift */; };
 		5D23AE9029723EAA005EF56F /* AddSocialMediaViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE8F29723EAA005EF56F /* AddSocialMediaViewController.swift */; };
 		5D23AE9229724519005EF56F /* SocialMediaModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE9129724519005EF56F /* SocialMediaModel.swift */; };
 		5D23AE9629737A60005EF56F /* HostProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE9529737A60005EF56F /* HostProfileViewController.swift */; };
@@ -16,13 +20,15 @@
 		5D23AE9A29747960005EF56F /* AddEventViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE9929747960005EF56F /* AddEventViewController.swift */; };
 		5D23AE9C2974AF5D005EF56F /* Google_Places_Cell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE9B2974AF5D005EF56F /* Google_Places_Cell.swift */; };
 		5D23AE9E2974B070005EF56F /* GooglePlacesManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE9D2974B070005EF56F /* GooglePlacesManager.swift */; };
-		5D23AEA02974B0E5005EF56F /* MyGest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AE9F2974B0E5005EF56F /* MyGest.swift */; };
 		5D23AEA22974B1A0005EF56F /* EventModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AEA12974B1A0005EF56F /* EventModel.swift */; };
 		5D23AEA42974C761005EF56F /* Event_TableView_Cell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AEA32974C761005EF56F /* Event_TableView_Cell.swift */; };
 		5D23AEA62975E9FB005EF56F /* EditEventViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AEA52975E9FB005EF56F /* EditEventViewController.swift */; };
-		5D23AEA8297613D5005EF56F /* HostModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AEA7297613D5005EF56F /* HostModel.swift */; };
 		5D23AEAA297775F3005EF56F /* ShowHostProfileViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AEA9297775F3005EF56F /* ShowHostProfileViewController.swift */; };
 		5D23AEAC2979EC31005EF56F /* FollowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D23AEAB2979EC31005EF56F /* FollowModel.swift */; };
+		5D3A4A092A14CA0C00E23AED /* FavouritesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3A4A082A14CA0C00E23AED /* FavouritesViewController.swift */; };
+		5D3A4A0B2A14D01400E23AED /* MyEventViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3A4A0A2A14D01400E23AED /* MyEventViewController.swift */; };
+		5D3A4A0D2A15762900E23AED /* SuccessViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D3A4A0C2A15762900E23AED /* SuccessViewController.swift */; };
+		5D3A4A0F2A15764A00E23AED /* success.json in Resources */ = {isa = PBXBuildFile; fileRef = 5D3A4A0E2A15764900E23AED /* success.json */; };
 		5D8648D929460B8100E4A646 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8648D829460B8100E4A646 /* AppDelegate.swift */; };
 		5D8648DB29460B8100E4A646 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8648DA29460B8100E4A646 /* SceneDelegate.swift */; };
 		5D8648DD29460B8100E4A646 /* WelcomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8648DC29460B8100E4A646 /* WelcomeViewController.swift */; };
@@ -41,7 +47,7 @@
 		5D86490529460D4600E4A646 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D86490129460D4500E4A646 /* Constants.swift */; };
 		5D86490629460D4600E4A646 /* MyExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D86490229460D4600E4A646 /* MyExtensions.swift */; };
 		5D8649082946153E00E4A646 /* SignInviewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8649072946153E00E4A646 /* SignInviewController.swift */; };
-		5D86490A2946154A00E4A646 /* RegistrationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8649092946154A00E4A646 /* RegistrationViewController.swift */; };
+		5D86490A2946154A00E4A646 /* HostRegistrationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8649092946154A00E4A646 /* HostRegistrationViewController.swift */; };
 		5D86490E2946327F00E4A646 /* UserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D86490D2946327F00E4A646 /* UserModel.swift */; };
 		5D8649112946353500E4A646 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 5D8649102946353500E4A646 /* GoogleService-Info.plist */; };
 		5D86491329466FE000E4A646 /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D86491229466FE000E4A646 /* HomeViewController.swift */; };
@@ -51,10 +57,19 @@
 		5D9025632971B74700AA7F97 /* MembershipOverlayViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9025612971B74700AA7F97 /* MembershipOverlayViewController.swift */; };
 		5D9025642971B74700AA7F97 /* MembershipOverlayViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = 5D9025622971B74700AA7F97 /* MembershipOverlayViewController.xib */; };
 		5D9025662971B9C200AA7F97 /* MembershipViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D9025652971B9C200AA7F97 /* MembershipViewController.swift */; };
+		5DB3364929EE1049004E458C /* EntryPageViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DB3364829EE1049004E458C /* EntryPageViewController.swift */; };
+		5DD7FAD42A44E6BD00D03C55 /* EventDetailsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DD7FAD32A44E6BD00D03C55 /* EventDetailsViewController.swift */; };
+		6767EA066847D830B4686EF6 /* Pods_IMAB.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FEC53166BF1A79A4D55B72F /* Pods_IMAB.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		5D23AE8D297226D9005EF56F /* EditProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileViewController.swift; sourceTree = "<group>"; };
+		2FEC53166BF1A79A4D55B72F /* Pods_IMAB.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_IMAB.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		5D1017B52A0634CA002C16F0 /* FirebaseStoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirebaseStoreManager.swift; sourceTree = "<group>"; };
+		5D1017B72A0638FA002C16F0 /* CompleteHostProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompleteHostProfileViewController.swift; sourceTree = "<group>"; };
+		5D1017B92A070D89002C16F0 /* FanRegistrationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FanRegistrationViewController.swift; sourceTree = "<group>"; };
+		5D20044E2A3C56C800ECB76B /* EditHostProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditHostProfileViewController.swift; sourceTree = "<group>"; };
+		5D2004502A3CFF4200ECB76B /* CircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleView.swift; sourceTree = "<group>"; };
+		5D23AE8D297226D9005EF56F /* UpdateProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateProfileViewController.swift; sourceTree = "<group>"; };
 		5D23AE8F29723EAA005EF56F /* AddSocialMediaViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSocialMediaViewController.swift; sourceTree = "<group>"; };
 		5D23AE9129724519005EF56F /* SocialMediaModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialMediaModel.swift; sourceTree = "<group>"; };
 		5D23AE9529737A60005EF56F /* HostProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostProfileViewController.swift; sourceTree = "<group>"; };
@@ -62,13 +77,15 @@
 		5D23AE9929747960005EF56F /* AddEventViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEventViewController.swift; sourceTree = "<group>"; };
 		5D23AE9B2974AF5D005EF56F /* Google_Places_Cell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Google_Places_Cell.swift; sourceTree = "<group>"; };
 		5D23AE9D2974B070005EF56F /* GooglePlacesManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GooglePlacesManager.swift; sourceTree = "<group>"; };
-		5D23AE9F2974B0E5005EF56F /* MyGest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyGest.swift; sourceTree = "<group>"; };
 		5D23AEA12974B1A0005EF56F /* EventModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventModel.swift; sourceTree = "<group>"; };
 		5D23AEA32974C761005EF56F /* Event_TableView_Cell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Event_TableView_Cell.swift; sourceTree = "<group>"; };
 		5D23AEA52975E9FB005EF56F /* EditEventViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditEventViewController.swift; sourceTree = "<group>"; };
-		5D23AEA7297613D5005EF56F /* HostModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostModel.swift; sourceTree = "<group>"; };
 		5D23AEA9297775F3005EF56F /* ShowHostProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShowHostProfileViewController.swift; sourceTree = "<group>"; };
 		5D23AEAB2979EC31005EF56F /* FollowModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowModel.swift; sourceTree = "<group>"; };
+		5D3A4A082A14CA0C00E23AED /* FavouritesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavouritesViewController.swift; sourceTree = "<group>"; };
+		5D3A4A0A2A14D01400E23AED /* MyEventViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyEventViewController.swift; sourceTree = "<group>"; };
+		5D3A4A0C2A15762900E23AED /* SuccessViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuccessViewController.swift; sourceTree = "<group>"; };
+		5D3A4A0E2A15764900E23AED /* success.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = success.json; sourceTree = "<group>"; };
 		5D8648D529460B8100E4A646 /* IMAB.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IMAB.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5D8648D829460B8100E4A646 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		5D8648DA29460B8100E4A646 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
@@ -89,7 +106,7 @@
 		5D86490129460D4500E4A646 /* Constants.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Constants.swift; sourceTree = "<group>"; };
 		5D86490229460D4600E4A646 /* MyExtensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MyExtensions.swift; sourceTree = "<group>"; };
 		5D8649072946153E00E4A646 /* SignInviewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SignInviewController.swift; sourceTree = "<group>"; };
-		5D8649092946154A00E4A646 /* RegistrationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationViewController.swift; sourceTree = "<group>"; };
+		5D8649092946154A00E4A646 /* HostRegistrationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostRegistrationViewController.swift; sourceTree = "<group>"; };
 		5D86490D2946327F00E4A646 /* UserModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserModel.swift; sourceTree = "<group>"; };
 		5D86490F2946348100E4A646 /* IMAB.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IMAB.entitlements; sourceTree = "<group>"; };
 		5D8649102946353500E4A646 /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
@@ -100,9 +117,10 @@
 		5D9025612971B74700AA7F97 /* MembershipOverlayViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MembershipOverlayViewController.swift; sourceTree = "<group>"; };
 		5D9025622971B74700AA7F97 /* MembershipOverlayViewController.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; path = MembershipOverlayViewController.xib; sourceTree = "<group>"; };
 		5D9025652971B9C200AA7F97 /* MembershipViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MembershipViewController.swift; sourceTree = "<group>"; };
-		6063AA49115C9B459AAB3395 /* Pods_IMAB.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_IMAB.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		9D67A347B5AC35C8712974FD /* Pods-IMAB.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IMAB.debug.xcconfig"; path = "Target Support Files/Pods-IMAB/Pods-IMAB.debug.xcconfig"; sourceTree = "<group>"; };
-		E0CA0EB10293B7171E66FAB1 /* Pods-IMAB.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IMAB.release.xcconfig"; path = "Target Support Files/Pods-IMAB/Pods-IMAB.release.xcconfig"; sourceTree = "<group>"; };
+		5DB3364829EE1049004E458C /* EntryPageViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryPageViewController.swift; sourceTree = "<group>"; };
+		5DD7FAD32A44E6BD00D03C55 /* EventDetailsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventDetailsViewController.swift; sourceTree = "<group>"; };
+		7EEC5E55117252877B16E37C /* Pods-IMAB.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IMAB.release.xcconfig"; path = "Target Support Files/Pods-IMAB/Pods-IMAB.release.xcconfig"; sourceTree = "<group>"; };
+		A9C3C4F017824432BCF0E214 /* Pods-IMAB.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-IMAB.debug.xcconfig"; path = "Target Support Files/Pods-IMAB/Pods-IMAB.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,32 +128,33 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3E75EDAC69F89E8AC0E90561 /* Pods_IMAB.framework in Frameworks */,
+				6767EA066847D830B4686EF6 /* Pods_IMAB.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		2FD08A4F0260171528637B6F /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				6063AA49115C9B459AAB3395 /* Pods_IMAB.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		5D23AE8C297226CA005EF56F /* Host */ = {
 			isa = PBXGroup;
 			children = (
-				5D23AE8D297226D9005EF56F /* EditProfileViewController.swift */,
-				5D23AE8F29723EAA005EF56F /* AddSocialMediaViewController.swift */,
+				5D23AE8D297226D9005EF56F /* UpdateProfileViewController.swift */,
 				5D23AE9529737A60005EF56F /* HostProfileViewController.swift */,
+				5D23AE8F29723EAA005EF56F /* AddSocialMediaViewController.swift */,
 				5D23AE9729738EA6005EF56F /* EditSocialMediaViewContoller.swift */,
 				5D23AE9929747960005EF56F /* AddEventViewController.swift */,
 				5D23AEA52975E9FB005EF56F /* EditEventViewController.swift */,
+				5D20044E2A3C56C800ECB76B /* EditHostProfileViewController.swift */,
 			);
 			path = Host;
+			sourceTree = "<group>";
+		};
+		5D4FFC54D50431386A04C104 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2FEC53166BF1A79A4D55B72F /* Pods_IMAB.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		5D8648CC29460B8100E4A646 = {
@@ -144,7 +163,7 @@
 				5D8648D729460B8100E4A646 /* IMAB */,
 				5D8648D629460B8100E4A646 /* Products */,
 				89BEA2C76C6E964DEC7B31FB /* Pods */,
-				2FD08A4F0260171528637B6F /* Frameworks */,
+				5D4FFC54D50431386A04C104 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -168,6 +187,7 @@
 				5D8648D829460B8100E4A646 /* AppDelegate.swift */,
 				5D8648DA29460B8100E4A646 /* SceneDelegate.swift */,
 				5D8649102946353500E4A646 /* GoogleService-Info.plist */,
+				5D3A4A0E2A15764900E23AED /* success.json */,
 				5D8648E629460B8300E4A646 /* Info.plist */,
 			);
 			path = IMAB;
@@ -184,6 +204,7 @@
 				5D9025622971B74700AA7F97 /* MembershipOverlayViewController.xib */,
 				5D23AE9B2974AF5D005EF56F /* Google_Places_Cell.swift */,
 				5D23AEA32974C761005EF56F /* Event_TableView_Cell.swift */,
+				5D2004502A3CFF4200ECB76B /* CircleView.swift */,
 			);
 			path = View;
 			sourceTree = "<group>";
@@ -193,13 +214,20 @@
 			children = (
 				5D23AE8C297226CA005EF56F /* Host */,
 				5D8648DC29460B8100E4A646 /* WelcomeViewController.swift */,
+				5DB3364829EE1049004E458C /* EntryPageViewController.swift */,
+				5D8649092946154A00E4A646 /* HostRegistrationViewController.swift */,
+				5D1017B92A070D89002C16F0 /* FanRegistrationViewController.swift */,
+				5D1017B72A0638FA002C16F0 /* CompleteHostProfileViewController.swift */,
 				5D8649072946153E00E4A646 /* SignInviewController.swift */,
-				5D8649092946154A00E4A646 /* RegistrationViewController.swift */,
-				5D86491229466FE000E4A646 /* HomeViewController.swift */,
 				5D8649162946725D00E4A646 /* TabBarViewController.swift */,
+				5D86491229466FE000E4A646 /* HomeViewController.swift */,
 				5D90255F2970B57E00AA7F97 /* ProfileViewController.swift */,
 				5D9025652971B9C200AA7F97 /* MembershipViewController.swift */,
 				5D23AEA9297775F3005EF56F /* ShowHostProfileViewController.swift */,
+				5D3A4A082A14CA0C00E23AED /* FavouritesViewController.swift */,
+				5D3A4A0A2A14D01400E23AED /* MyEventViewController.swift */,
+				5D3A4A0C2A15762900E23AED /* SuccessViewController.swift */,
+				5DD7FAD32A44E6BD00D03C55 /* EventDetailsViewController.swift */,
 			);
 			path = ViewController;
 			sourceTree = "<group>";
@@ -207,7 +235,6 @@
 		5D8648EE29460C5D00E4A646 /* Model */ = {
 			isa = PBXGroup;
 			children = (
-				5D23AEA7297613D5005EF56F /* HostModel.swift */,
 				5D86490D2946327F00E4A646 /* UserModel.swift */,
 				5D23AE9129724519005EF56F /* SocialMediaModel.swift */,
 				5D23AEA12974B1A0005EF56F /* EventModel.swift */,
@@ -224,7 +251,7 @@
 				5D8648FF29460D4300E4A646 /* MyGesture.swift */,
 				5D86490029460D4400E4A646 /* Root.swift */,
 				5D23AE9D2974B070005EF56F /* GooglePlacesManager.swift */,
-				5D23AE9F2974B0E5005EF56F /* MyGest.swift */,
+				5D1017B52A0634CA002C16F0 /* FirebaseStoreManager.swift */,
 			);
 			path = Util;
 			sourceTree = "<group>";
@@ -246,8 +273,8 @@
 		89BEA2C76C6E964DEC7B31FB /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				9D67A347B5AC35C8712974FD /* Pods-IMAB.debug.xcconfig */,
-				E0CA0EB10293B7171E66FAB1 /* Pods-IMAB.release.xcconfig */,
+				A9C3C4F017824432BCF0E214 /* Pods-IMAB.debug.xcconfig */,
+				7EEC5E55117252877B16E37C /* Pods-IMAB.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -259,12 +286,12 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5D8648E929460B8300E4A646 /* Build configuration list for PBXNativeTarget "IMAB" */;
 			buildPhases = (
-				D82A72995E5D97698AD6DE4D /* [CP] Check Pods Manifest.lock */,
+				C9AA2EA67ADBDD0403A39EC6 /* [CP] Check Pods Manifest.lock */,
 				5D8648D129460B8100E4A646 /* Sources */,
 				5D8648D229460B8100E4A646 /* Frameworks */,
 				5D8648D329460B8100E4A646 /* Resources */,
-				A352965BABB581EE239C573D /* [CP] Embed Pods Frameworks */,
-				6EFB0261F6C49EB865FC0C91 /* [CP] Copy Pods Resources */,
+				D59BFD4FA80C4E7688288570 /* [CP] Embed Pods Frameworks */,
+				895EB86F2A3E9C9F084BB7D2 /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
 			);
@@ -316,6 +343,7 @@
 				5D8649112946353500E4A646 /* GoogleService-Info.plist in Resources */,
 				5D8648FE29460D3200E4A646 /* montblack.ttf in Resources */,
 				5D8648FA29460D3200E4A646 /* montextrabold.ttf in Resources */,
+				5D3A4A0F2A15764A00E23AED /* success.json in Resources */,
 				5D8648E529460B8300E4A646 /* LaunchScreen.storyboard in Resources */,
 				5D8648FB29460D3200E4A646 /* montsemibold.ttf in Resources */,
 				5D8648FC29460D3200E4A646 /* montregular.ttf in Resources */,
@@ -331,7 +359,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		6EFB0261F6C49EB865FC0C91 /* [CP] Copy Pods Resources */ = {
+		895EB86F2A3E9C9F084BB7D2 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -348,24 +376,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		A352965BABB581EE239C573D /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		D82A72995E5D97698AD6DE4D /* [CP] Check Pods Manifest.lock */ = {
+		C9AA2EA67ADBDD0403A39EC6 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -387,6 +398,23 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		D59BFD4FA80C4E7688288570 /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-frameworks-${CONFIGURATION}-input-files.xcfilelist",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputFileListPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-IMAB/Pods-IMAB-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -395,35 +423,43 @@
 			buildActionMask = 2147483647;
 			files = (
 				5D86490629460D4600E4A646 /* MyExtensions.swift in Sources */,
+				5D1017BA2A070D89002C16F0 /* FanRegistrationViewController.swift in Sources */,
 				5D8648DD29460B8100E4A646 /* WelcomeViewController.swift in Sources */,
 				5D8648D929460B8100E4A646 /* AppDelegate.swift in Sources */,
-				5D86490A2946154A00E4A646 /* RegistrationViewController.swift in Sources */,
-				5D23AEA02974B0E5005EF56F /* MyGest.swift in Sources */,
+				5D20044F2A3C56C800ECB76B /* EditHostProfileViewController.swift in Sources */,
+				5D86490A2946154A00E4A646 /* HostRegistrationViewController.swift in Sources */,
 				5D23AE9C2974AF5D005EF56F /* Google_Places_Cell.swift in Sources */,
+				5DB3364929EE1049004E458C /* EntryPageViewController.swift in Sources */,
 				5D9025662971B9C200AA7F97 /* MembershipViewController.swift in Sources */,
+				5D3A4A0B2A14D01400E23AED /* MyEventViewController.swift in Sources */,
 				5D23AE9229724519005EF56F /* SocialMediaModel.swift in Sources */,
 				5D23AEA22974B1A0005EF56F /* EventModel.swift in Sources */,
-				5D23AEA8297613D5005EF56F /* HostModel.swift in Sources */,
+				5D3A4A0D2A15762900E23AED /* SuccessViewController.swift in Sources */,
 				5D8648DB29460B8100E4A646 /* SceneDelegate.swift in Sources */,
 				5D23AEA42974C761005EF56F /* Event_TableView_Cell.swift in Sources */,
+				5DD7FAD42A44E6BD00D03C55 /* EventDetailsViewController.swift in Sources */,
 				5D23AE9A29747960005EF56F /* AddEventViewController.swift in Sources */,
 				5D8649082946153E00E4A646 /* SignInviewController.swift in Sources */,
 				5D23AE9629737A60005EF56F /* HostProfileViewController.swift in Sources */,
 				5D23AEAA297775F3005EF56F /* ShowHostProfileViewController.swift in Sources */,
 				5D9025602970B57E00AA7F97 /* ProfileViewController.swift in Sources */,
+				5D2004512A3CFF4200ECB76B /* CircleView.swift in Sources */,
 				5D86490329460D4600E4A646 /* MyGesture.swift in Sources */,
 				5D864915294671AD00E4A646 /* HostTableViewCell.swift in Sources */,
-				5D23AE8E297226D9005EF56F /* EditProfileViewController.swift in Sources */,
+				5D23AE8E297226D9005EF56F /* UpdateProfileViewController.swift in Sources */,
 				5D86491329466FE000E4A646 /* HomeViewController.swift in Sources */,
 				5D23AE9029723EAA005EF56F /* AddSocialMediaViewController.swift in Sources */,
 				5D23AE9E2974B070005EF56F /* GooglePlacesManager.swift in Sources */,
 				5D86490429460D4600E4A646 /* Root.swift in Sources */,
 				5D9025632971B74700AA7F97 /* MembershipOverlayViewController.swift in Sources */,
 				5D23AEA62975E9FB005EF56F /* EditEventViewController.swift in Sources */,
+				5D1017B82A0638FA002C16F0 /* CompleteHostProfileViewController.swift in Sources */,
 				5D8649172946725D00E4A646 /* TabBarViewController.swift in Sources */,
 				5D86490E2946327F00E4A646 /* UserModel.swift in Sources */,
 				5D23AE9829738EA6005EF56F /* EditSocialMediaViewContoller.swift in Sources */,
 				5D23AEAC2979EC31005EF56F /* FollowModel.swift in Sources */,
+				5D1017B62A0634CA002C16F0 /* FirebaseStoreManager.swift in Sources */,
+				5D3A4A092A14CA0C00E23AED /* FavouritesViewController.swift in Sources */,
 				5D86490529460D4600E4A646 /* Constants.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -500,7 +536,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -554,7 +590,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
@@ -566,20 +602,22 @@
 		};
 		5D8648EA29460B8300E4A646 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 9D67A347B5AC35C8712974FD /* Pods-IMAB.debug.xcconfig */;
+			baseConfigurationReference = A9C3C4F017824432BCF0E214 /* Pods-IMAB.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = IMAB/IMAB.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = BGRN7GUMNB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IMAB/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = IMAB;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "IMAB app want media library access to fetch profile picture";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "$(PRODUCT_NAME) want access calendar to save event date";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "IMAB want access calendar to save event date";
+				INFOPLIST_KEY_NSCameraUsageDescription = "IMAB app want camera access to capture profile picture ";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "IMAB need your location to fetch nearest host";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -592,13 +630,16 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4;
+				MARKETING_VERSION = 14;
 				PRODUCT_BUNDLE_IDENTIFIER = online.softment.IMAB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_BATCH_MODE = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -606,20 +647,22 @@
 		};
 		5D8648EB29460B8300E4A646 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E0CA0EB10293B7171E66FAB1 /* Pods-IMAB.release.xcconfig */;
+			baseConfigurationReference = 7EEC5E55117252877B16E37C /* Pods-IMAB.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = IMAB/IMAB.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 14;
 				DEVELOPMENT_TEAM = BGRN7GUMNB;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IMAB/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = IMAB;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "IMAB app want media library access to fetch profile picture";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "$(PRODUCT_NAME) want access calendar to save event date";
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "IMAB want access calendar to save event date";
+				INFOPLIST_KEY_NSCameraUsageDescription = "IMAB app want camera access to capture profile picture ";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "IMAB need your location to fetch nearest host";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -632,13 +675,16 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 4;
+				MARKETING_VERSION = 14;
 				PRODUCT_BUNDLE_IDENTIFIER = online.softment.IMAB;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ENABLE_BATCH_MODE = "";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};

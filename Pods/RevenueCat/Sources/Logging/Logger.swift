@@ -14,27 +14,6 @@
 
 import Foundation
 
-/// Enumeration of the different verbosity levels.
-///
-/// #### Related Symbols
-/// - ``Purchases/logLevel``
-@objc(RCLogLevel) public enum LogLevel: Int, CustomStringConvertible {
-
-    // swiftlint:disable:next missing_docs
-    case debug, info, warn, error
-
-    // swiftlint:disable:next missing_docs
-    public var description: String {
-        switch self {
-        case .debug: return "DEBUG"
-        case .info: return "INFO"
-        case .warn: return "WARN"
-        case .error: return "ERROR"
-        }
-    }
-
-}
-
 /// A function that can handle a log message including file and method information.
 public typealias VerboseLogHandler = (_ level: LogLevel,
                                       _ message: String,
@@ -46,25 +25,34 @@ public typealias VerboseLogHandler = (_ level: LogLevel,
 public typealias LogHandler = (_ level: LogLevel,
                                _ message: String) -> Void
 
-enum Logger {
+internal typealias InternalLogHandler = (_ level: LogLevel,
+                                         _ message: String,
+                                         _ category: String,
+                                         _ file: String?,
+                                         _ function: String?,
+                                         _ line: UInt) -> Void
+
+// MARK: - Logger
+
+// This is a `struct` instead of `enum` so that
+// we can use `Logger()` as a `LoggerType`.
+// swiftlint:disable:next convenience_type
+struct Logger {
 
     static var logLevel: LogLevel = Self.defaultLogLevel
-    static var logHandler: VerboseLogHandler = Self.defaultLogHandler
+    static var internalLogHandler: InternalLogHandler = Self.defaultLogHandler
 
-    static let defaultLogHandler: VerboseLogHandler = { level, message, file, functionName, line in
-        let fileContext: String
-        if Logger.verbose, let file = file, let functionName = functionName {
-            let fileName = (file as NSString)
-                .lastPathComponent
-                .replacingOccurrences(of: ".swift", with: "")
-                .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
-
-            fileContext = "\t\(fileName).\(functionName):\(line)"
-        } else {
-            fileContext = ""
-        }
-
-        NSLog("%@", "[\(frameworkDescription)] - \(level.description)\(fileContext): \(message)")
+    static let defaultLogHandler: InternalLogHandler = { level, message, category, file, functionName, line in
+        RCDefaultLogHandler(
+            Self.frameworkDescription,
+            Logger.verbose,
+            level,
+            category,
+            message,
+            file,
+            functionName,
+            line
+        )
     }
 
     static var verbose: Bool = false
@@ -79,123 +67,241 @@ enum Logger {
 
     internal static let frameworkDescription = "Purchases"
 
-    static func debug(_ message: @autoclosure () -> CustomStringConvertible,
+}
+
+// MARK: - LoggerType implementation
+
+/// `Logger` can be used both with static or instance methods.
+/// This allows us to use it directly (`Logger.info("...")`), or inject it:
+/// ```swift
+/// let logger: LoggerType
+/// logger.info("...")
+/// ```
+extension Logger: LoggerType {
+
+    func verbose(_ message: @autoclosure () -> LogMessage,
+                 fileName: String? = #fileID,
+                 functionName: String? = #function,
+                 line: UInt = #line) {
+        Self.verbose(message(), fileName: fileName, functionName: functionName, line: line)
+    }
+
+    func debug(_ message: @autoclosure () -> LogMessage,
+               fileName: String? = #fileID,
+               functionName: String? = #function,
+               line: UInt = #line) {
+        Self.debug(message(), fileName: fileName, functionName: functionName, line: line)
+    }
+
+    func info(_ message: @autoclosure () -> LogMessage,
+              fileName: String? = #fileID,
+              functionName: String? = #function,
+              line: UInt = #line) {
+        Self.info(message(), fileName: fileName, functionName: functionName, line: line)
+    }
+
+    func warn(_ message: @autoclosure () -> LogMessage,
+              fileName: String? = #fileID,
+              functionName: String? = #function,
+              line: UInt = #line) {
+        Self.warn(message(), fileName: fileName, functionName: functionName, line: line)
+    }
+
+    func error(_ message: @autoclosure () -> LogMessage,
+               fileName: String = #fileID,
+               functionName: String = #function,
+               line: UInt = #line) {
+        Self.error(message(), fileName: fileName, functionName: functionName, line: line)
+    }
+
+}
+
+// MARK: - Static implementation
+
+extension Logger {
+
+    static func verbose(_ message: @autoclosure () -> LogMessage,
+                        fileName: String? = #fileID,
+                        functionName: String? = #function,
+                        line: UInt = #line) {
+        Self.log(level: .verbose, intent: .verbose, message: message(),
+                 fileName: fileName, functionName: functionName, line: line)
+    }
+
+    static func debug(_ message: @autoclosure () -> LogMessage,
                       fileName: String? = #fileID,
                       functionName: String? = #function,
                       line: UInt = #line) {
-        log(level: .debug, intent: .info, message: message().description,
-            fileName: fileName, functionName: functionName, line: line)
+        Self.log(level: .debug, intent: .info, message: message(),
+                 fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func info(_ message: @autoclosure () -> CustomStringConvertible,
+    static func info(_ message: @autoclosure () -> LogMessage,
                      fileName: String? = #fileID,
                      functionName: String? = #function,
                      line: UInt = #line) {
-        log(level: .info, intent: .info, message: message().description,
-            fileName: fileName, functionName: functionName, line: line)
+        Self.log(level: .info, intent: .info, message: message(),
+                 fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func warn(_ message: @autoclosure () -> CustomStringConvertible,
+    static func warn(_ message: @autoclosure () -> LogMessage,
                      fileName: String? = #fileID,
                      functionName: String? = #function,
                      line: UInt = #line) {
-        log(level: .warn, intent: .warning, message: message().description,
-            fileName: fileName, functionName: functionName, line: line)
+        Self.log(level: .warn, intent: .warning, message: message(),
+                 fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func error(_ message: @autoclosure () -> CustomStringConvertible,
+    static func error(_ message: @autoclosure () -> String,
                       fileName: String = #fileID,
                       functionName: String = #function,
                       line: UInt = #line) {
-        log(level: .error, intent: .rcError, message: message().description,
-            fileName: fileName, functionName: functionName, line: line)
+        Self.error(
+            ErrorMessage(description: message()),
+            fileName: fileName,
+            functionName: functionName,
+            line: line
+        )
+    }
+
+    static func error(_ message: @autoclosure () -> LogMessage,
+                      fileName: String = #fileID,
+                      functionName: String = #function,
+                      line: UInt = #line) {
+        Self.log(level: .error, intent: .rcError, message: message(),
+                 fileName: fileName, functionName: functionName, line: line)
     }
 
 }
 
 extension Logger {
 
-    static func appleError(_ message: @autoclosure () -> CustomStringConvertible,
+    static func appleError(_ message: @autoclosure () -> String,
                            fileName: String = #fileID,
                            functionName: String = #function,
                            line: UInt = #line) {
-        self.log(level: .error, intent: .appleError, message: message().description,
+        Self.appleError(
+            ErrorMessage(description: message()),
+            fileName: fileName,
+            functionName: functionName,
+            line: line
+        )
+    }
+
+    static func appleError(_ message: @autoclosure () -> LogMessage,
+                           fileName: String = #fileID,
+                           functionName: String = #function,
+                           line: UInt = #line) {
+        Self.log(level: .error, intent: .appleError, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func appleWarning(_ message: @autoclosure () -> CustomStringConvertible,
+    static func appleWarning(_ message: @autoclosure () -> LogMessage,
                              fileName: String = #fileID,
                              functionName: String = #function,
                              line: UInt = #line) {
-        self.log(level: .warn, intent: .appleError, message: message().description,
+        Self.log(level: .warn, intent: .appleError, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func purchase(_ message: @autoclosure () -> CustomStringConvertible,
+    static func purchase(_ message: @autoclosure () -> LogMessage,
                          fileName: String = #fileID,
                          functionName: String = #function,
                          line: UInt = #line) {
-        self.log(level: .info, intent: .purchase, message: message().description,
+        Self.log(level: .info, intent: .purchase, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func rcPurchaseSuccess(_ message: @autoclosure () -> CustomStringConvertible,
+    static func rcPurchaseSuccess(_ message: @autoclosure () -> LogMessage,
                                   fileName: String = #fileID,
                                   functionName: String = #function,
                                   line: UInt = #line) {
-        self.log(level: .info, intent: .rcPurchaseSuccess, message: message().description,
+        Self.log(level: .info, intent: .rcPurchaseSuccess, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func rcPurchaseError(_ message: @autoclosure () -> CustomStringConvertible,
+    static func rcPurchaseError(_ message: @autoclosure () -> LogMessage,
                                 fileName: String = #fileID,
                                 functionName: String = #function,
                                 line: UInt = #line) {
-        self.log(level: .error, intent: .purchase, message: message().description,
+        Self.log(level: .error, intent: .purchase, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func rcSuccess(_ message: @autoclosure () -> CustomStringConvertible,
+    static func rcSuccess(_ message: @autoclosure () -> LogMessage,
                           fileName: String = #fileID,
                           functionName: String = #function,
                           line: UInt = #line) {
-        self.log(level: .debug, intent: .rcSuccess, message: message().description,
+        Self.log(level: .debug, intent: .rcSuccess, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
     }
 
-    static func user(_ message: @autoclosure () -> CustomStringConvertible,
+    static func user(_ message: @autoclosure () -> LogMessage,
                      fileName: String? = #fileID,
                      functionName: String? = #function,
                      line: UInt = #line) {
-        self.log(level: .debug, intent: .user, message: message().description,
+        Self.log(level: .debug, intent: .user, message: message(),
                  fileName: fileName, functionName: functionName, line: line)
-    }
-
-}
-
-private extension Logger {
-
-    static func log(level: LogLevel,
-                    message: @autoclosure () -> String,
-                    fileName: String? = #fileID,
-                    functionName: String? = #function,
-                    line: UInt = #line) {
-        guard self.logLevel.rawValue <= level.rawValue else { return }
-
-        Self.logHandler(level, message(), fileName, functionName, line)
     }
 
     static func log(level: LogLevel,
                     intent: LogIntent,
-                    message: @autoclosure () -> String,
+                    message: @autoclosure () -> LogMessage,
                     fileName: String? = #fileID,
                     functionName: String? = #function,
                     line: UInt = #line) {
-        Self.log(level: level,
-                 message: "\(intent.prefix) \(message())",
-                 fileName: fileName,
-                 functionName: functionName,
-                 line: line)
+        guard self.logLevel <= level else { return }
+
+        let message = message()
+        let content = [intent.prefix.notEmpty, message.description]
+            .compactMap { $0 }
+            .joined(separator: " ")
+
+        Self.internalLogHandler(
+            level,
+            content,
+            message.category,
+            fileName,
+            functionName,
+            line
+        )
     }
+
+}
+
+// MARK: - LogLevel comparable conformance
+
+extension LogLevel: Comparable {
+
+    // swiftlint:disable:next missing_docs
+    public static func < (lhs: LogLevel, rhs: LogLevel) -> Bool {
+        // Tests ensure that this can't happen
+        guard let lhs = Self.order[lhs], let rhs = Self.order[rhs] else { return false }
+
+        return lhs < rhs
+    }
+
+    private static let orderedLevels: [LogLevel] = [
+        .verbose,
+        .debug,
+        .info,
+        .warn,
+        .error
+    ]
+    static let order: [LogLevel: Int] = Dictionary(uniqueKeysWithValues:
+                                                    Self.orderedLevels
+        .enumerated()
+        .lazy
+        .map { ($1, $0) }
+    )
+
+}
+
+// MARK: -
+
+private struct ErrorMessage: LogMessage {
+
+    let description: String
+    let category: String = "error"
 
 }

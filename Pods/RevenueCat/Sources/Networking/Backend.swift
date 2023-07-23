@@ -17,18 +17,22 @@ class Backend {
 
     let identity: IdentityAPI
     let offerings: OfferingsAPI
+    let offlineEntitlements: OfflineEntitlementsAPI
     let customer: CustomerAPI
     let internalAPI: InternalAPI
 
     private let config: BackendConfiguration
 
-    convenience init(apiKey: String,
-                     systemInfo: SystemInfo,
-                     httpClientTimeout: TimeInterval = Configuration.networkTimeoutDefault,
-                     eTagManager: ETagManager,
-                     operationDispatcher: OperationDispatcher,
-                     attributionFetcher: AttributionFetcher,
-                     dateProvider: DateProvider = DateProvider()) {
+    convenience init(
+        apiKey: String,
+        systemInfo: SystemInfo,
+        httpClientTimeout: TimeInterval = Configuration.networkTimeoutDefault,
+        eTagManager: ETagManager,
+        operationDispatcher: OperationDispatcher,
+        attributionFetcher: AttributionFetcher,
+        offlineCustomerInfoCreator: OfflineCustomerInfoCreator?,
+        dateProvider: DateProvider = DateProvider()
+    ) {
         let httpClient = HTTPClient(apiKey: apiKey,
                                     systemInfo: systemInfo,
                                     eTagManager: eTagManager,
@@ -36,6 +40,8 @@ class Backend {
         let config = BackendConfiguration(httpClient: httpClient,
                                           operationDispatcher: operationDispatcher,
                                           operationQueue: QueueProvider.createBackendQueue(),
+                                          systemInfo: systemInfo,
+                                          offlineCustomerInfoCreator: offlineCustomerInfoCreator,
                                           dateProvider: dateProvider)
         self.init(backendConfig: config, attributionFetcher: attributionFetcher)
     }
@@ -44,12 +50,14 @@ class Backend {
         let customer = CustomerAPI(backendConfig: backendConfig, attributionFetcher: attributionFetcher)
         let identity = IdentityAPI(backendConfig: backendConfig)
         let offerings = OfferingsAPI(backendConfig: backendConfig)
+        let offlineEntitlements = OfflineEntitlementsAPI(backendConfig: backendConfig)
         let internalAPI = InternalAPI(backendConfig: backendConfig)
 
         self.init(backendConfig: backendConfig,
                   customerAPI: customer,
                   identityAPI: identity,
                   offeringsAPI: offerings,
+                  offlineEntitlements: offlineEntitlements,
                   internalAPI: internalAPI)
     }
 
@@ -57,12 +65,14 @@ class Backend {
                   customerAPI: CustomerAPI,
                   identityAPI: IdentityAPI,
                   offeringsAPI: OfferingsAPI,
+                  offlineEntitlements: OfflineEntitlementsAPI,
                   internalAPI: InternalAPI) {
         self.config = backendConfig
 
         self.customer = customerAPI
         self.identity = identityAPI
         self.offerings = offeringsAPI
+        self.offlineEntitlements = offlineEntitlements
         self.internalAPI = internalAPI
     }
 
@@ -90,30 +100,23 @@ class Backend {
 
     func getCustomerInfo(appUserID: String,
                          withRandomDelay randomDelay: Bool,
+                         allowComputingOffline: Bool = true,
                          completion: @escaping CustomerAPI.CustomerInfoResponseHandler) {
         self.customer.getCustomerInfo(appUserID: appUserID,
                                       withRandomDelay: randomDelay,
+                                      allowComputingOffline: allowComputingOffline,
                                       completion: completion)
     }
 
-    // swiftlint:disable:next function_parameter_count
     func post(receiptData: Data,
-              appUserID: String,
-              isRestore: Bool,
               productData: ProductRequestData?,
-              presentedOfferingIdentifier offeringIdentifier: String?,
+              transactionData: PurchasedTransactionData,
               observerMode: Bool,
-              initiationSource: ProductRequestData.InitiationSource,
-              subscriberAttributes subscriberAttributesByKey: SubscriberAttribute.Dictionary?,
               completion: @escaping CustomerAPI.CustomerInfoResponseHandler) {
         self.customer.post(receiptData: receiptData,
-                           appUserID: appUserID,
-                           isRestore: isRestore,
                            productData: productData,
-                           presentedOfferingIdentifier: offeringIdentifier,
+                           transactionData: transactionData,
                            observerMode: observerMode,
-                           initiationSource: initiationSource,
-                           subscriberAttributes: subscriberAttributesByKey,
                            completion: completion)
     }
 
@@ -129,9 +132,9 @@ extension Backend {
 
     /// - Throws: `NetworkError`
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
-    func healthRequest() async throws {
+    func healthRequest(signatureVerification: Bool) async throws {
         try await Async.call { completion in
-            self.internalAPI.healthRequest { error in
+            self.internalAPI.healthRequest(signatureVerification: signatureVerification) { error in
                 completion(.init(error))
             }
         }
@@ -142,6 +145,22 @@ extension Backend {
 // @unchecked because:
 // - Class is not `final` (it's mocked). This implicitly makes subclasses `Sendable` even if they're not thread-safe.
 extension Backend: @unchecked Sendable {}
+
+// MARK: - Internal
+
+extension Backend {
+
+    typealias ResponseHandler<Response> = @Sendable (Swift.Result<Response, BackendError>) -> Void
+
+}
+
+extension Backend {
+
+    @objc var signatureVerificationEnabled: Bool {
+        return self.config.httpClient.signatureVerificationEnabled
+    }
+
+}
 
 extension Backend {
 
@@ -158,11 +177,16 @@ extension Backend {
 
 }
 
-// Testing extension
+// MARK: - Testing extensions
+
 extension Backend {
 
     var networkTimeout: TimeInterval {
         return self.config.httpClient.timeout
+    }
+
+    var offlineCustomerInfoEnabled: Bool {
+        return self.config.offlineCustomerInfoCreator != nil
     }
 
 }

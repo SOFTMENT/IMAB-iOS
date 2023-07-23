@@ -58,6 +58,9 @@ extension PurchasesDiagnostics {
         /// Fetching offerings failed due to the underlying error
         case failedFetchingOfferings(Swift.Error)
 
+        /// Failure performing a signed request
+        case failedMakingSignedRequest(Swift.Error)
+
         /// Any other not identifier error. You can check the undelying error for details.
         case unknown(Swift.Error)
 
@@ -76,8 +79,11 @@ extension PurchasesDiagnostics {
     public func testSDKHealth() async throws {
         do {
             try await self.unauthenticatedRequest()
+            #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
             try await self.authenticatedRequest()
+            #endif
             try await self.offeringsRequest()
+            try await self.signatureVerification()
         } catch let error as Error {
             throw error
         } catch let error {
@@ -96,12 +102,13 @@ private extension PurchasesDiagnostics {
     /// Makes a request to the backend, to verify connectivity, firewalls, or anything blocking network traffic.
     func unauthenticatedRequest() async throws {
         do {
-            try await self.purchases.healthRequest()
+            try await self.purchases.healthRequest(signatureVerification: false)
         } catch {
             throw Error.failedConnectingToAPI(error)
         }
     }
 
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
     func authenticatedRequest() async throws {
         do {
             _ = try await self.purchases.customerInfo()
@@ -111,12 +118,21 @@ private extension PurchasesDiagnostics {
             throw Error.unknown(error)
         }
     }
+    #endif
 
     func offeringsRequest() async throws {
         do {
             _ = try await self.purchases.offerings(fetchPolicy: .failIfProductsAreMissing)
         } catch {
             throw Error.failedFetchingOfferings(error)
+        }
+    }
+
+    func signatureVerification() async throws {
+        do {
+            try await self.purchases.healthRequest(signatureVerification: true)
+        } catch {
+            throw Error.failedMakingSignedRequest(error)
         }
     }
 
@@ -130,6 +146,9 @@ private extension PurchasesDiagnostics {
 
         case .invalidCredentialsError:
             return Error.invalidAPIKey
+
+        case .signatureVerificationFailed:
+            return Error.failedMakingSignedRequest(error)
 
         default:
             return Error.unknown(error)
@@ -154,6 +173,7 @@ extension PurchasesDiagnostics.Error: CustomNSError {
         case let .unknown(error): return "Unknown error: \(error.localizedDescription)"
         case let .failedConnectingToAPI(error): return "Error connecting to API: \(error.localizedDescription)"
         case let .failedFetchingOfferings(error): return "Failed fetching offerings: \(error.localizedDescription)"
+        case let .failedMakingSignedRequest(error): return "Failed making signed request: \(error.localizedDescription)"
         case .invalidAPIKey: return "API key is not valid"
         }
     }
@@ -163,6 +183,7 @@ extension PurchasesDiagnostics.Error: CustomNSError {
         case let .unknown(error): return error
         case let .failedConnectingToAPI(error): return error
         case let .failedFetchingOfferings(error): return error
+        case let .failedMakingSignedRequest(error): return error
         case .invalidAPIKey: return nil
         }
     }

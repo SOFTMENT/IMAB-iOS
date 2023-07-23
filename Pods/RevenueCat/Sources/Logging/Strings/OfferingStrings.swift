@@ -20,6 +20,7 @@ enum OfferingStrings {
 
     case cannot_find_product_configuration_error(identifiers: Set<String>)
     case fetching_offerings_error(error: OfferingsManager.Error, underlyingError: Error?)
+    case fetching_offerings_failed_server_down
     case found_existing_product_request(identifiers: Set<String>)
     case no_cached_offerings_fetching_from_network
     case offerings_stale_updated_from_network
@@ -27,7 +28,8 @@ enum OfferingStrings {
     case offerings_stale_updating_in_foreground
     case products_already_cached(identifiers: Set<String>)
     case product_cache_invalid_for_storefront_change
-    case vending_offerings_cache
+    case vending_offerings_cache_from_memory
+    case vending_offerings_cache_from_disk
     case retrieved_products(products: [SKProduct])
     case list_products(productIdentifier: String, product: SKProduct)
     case invalid_product_identifiers(identifiers: Set<String>)
@@ -40,10 +42,11 @@ enum OfferingStrings {
     case product_details_empty_title(productIdentifier: String)
     case unknown_package_type(Package)
     case custom_package_type(Package)
+    case overriding_package(old: String, new: String)
 
 }
 
-extension OfferingStrings: CustomStringConvertible {
+extension OfferingStrings: LogMessage {
 
     var description: String {
         switch self {
@@ -55,11 +58,18 @@ extension OfferingStrings: CustomStringConvertible {
         case let .fetching_offerings_error(error, underlyingError):
             var result = "Error fetching offerings - \(error.localizedDescription)"
 
+            if let message = error.errorDescription {
+                result += "\n\(message)"
+            }
+
             if let underlyingError = underlyingError {
                 result += "\nUnderlying error: \(underlyingError.localizedDescription)"
             }
 
             return result
+
+        case .fetching_offerings_failed_server_down:
+            return "Error fetching offerings: server appears down"
 
         case .found_existing_product_request(let identifiers):
             return "Found an existing request for products: \(identifiers), appending " +
@@ -86,8 +96,11 @@ extension OfferingStrings: CustomStringConvertible {
         case .product_cache_invalid_for_storefront_change:
             return "Storefront change detected. Invalidating and re-fetching product cache."
 
-        case .vending_offerings_cache:
-            return "Vending Offerings from cache"
+        case .vending_offerings_cache_from_memory:
+            return "Vending Offerings from memory cache"
+
+        case .vending_offerings_cache_from_disk:
+            return "Vending Offerings from disk cache"
 
         case .retrieved_products(let products):
             return "Retrieved SKProducts: \(products)"
@@ -116,7 +129,7 @@ extension OfferingStrings: CustomStringConvertible {
             return "There are no products registered in the RevenueCat dashboard for your offerings. " +
             "If you don't want to use the offerings system, you can safely ignore this message. " +
             "To configure offerings and their products, follow the instructions in " +
-            "https://rev.cat/how-to-configure-offerings. \nMore information: https://rev.cat/why-are-offerings-empty"
+            "https://rev.cat/how-to-configure-offerings.\nMore information: https://rev.cat/why-are-offerings-empty"
 
         case .offering_empty(let offeringIdentifier):
             return "There's a problem with your configuration. No packages could be found for offering with  " +
@@ -129,11 +142,22 @@ extension OfferingStrings: CustomStringConvertible {
             return "Empty Product titles are not supported. Found in product with identifier: \(identifier)"
 
         case let .unknown_package_type(package):
-            return "Unknown subscription length for package '\(package.offeringIdentifier)'. Ignoring."
+            return "Package '\(package.identifier)' in offering '\(package.offeringIdentifier)' " +
+            "has an unknown duration." +
+            "\nYou can reference this package by its identifier ('\(package.identifier)') directly." +
+            "\nMore information: https://rev.cat/displaying-products"
 
         case let .custom_package_type(package):
-            return "Package '\(package.offeringIdentifier)' has a custom duration. Ignoring."
+            return "Package '\(package.identifier)' in offering '\(package.offeringIdentifier)' " +
+            "has a custom duration." +
+            "\nYou can reference this package by its identifier ('\(package.identifier)') directly." +
+            "\nMore information: https://rev.cat/displaying-products"
+
+        case let .overriding_package(old, new):
+            return "Package: \(old) already exists, overwriting with: \(new)"
         }
     }
+
+    var category: String { return "offering" }
 
 }

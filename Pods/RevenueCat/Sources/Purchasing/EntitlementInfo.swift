@@ -134,6 +134,11 @@ extension PeriodType: DefaultValueProvider {
     @objc public var productIdentifier: String { self.contents.productIdentifier }
 
     /**
+     The product plan identifier that unlocked this entitlement (usually for a Google Play purchase)
+     */
+    @objc internal var productPlanIdentifier: String? { self.contents.productPlanIdentifier }
+
+    /**
      False if this entitlement is unlocked via a production purchase
      */
     @objc public var isSandbox: Bool { self.contents.isSandbox }
@@ -161,6 +166,14 @@ extension PeriodType: DefaultValueProvider {
      */
     @objc public var ownershipType: PurchaseOwnershipType { self.contents.ownershipType }
 
+    /// Whether this entitlement was verified.
+    ///
+    /// ### Related Symbols
+    /// - ``VerificationResult``
+    // Trusted Entitlements: internal until ready to be made public.
+    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
+    @objc internal var verification: VerificationResult { self.contents.verification }
+
     // Docs inherited from protocol
     // swiftlint:disable:next missing_docs
     @objc public let rawData: [String: Any]
@@ -182,7 +195,8 @@ extension PeriodType: DefaultValueProvider {
             isSandbox=\(self.isSandbox),
             unsubscribeDetectedAt=\(String(describing: self.unsubscribeDetectedAt)),
             billingIssueDetectedAt=\(String(describing: self.billingIssueDetectedAt)),
-            ownershipType=\(self.ownershipType)
+            ownershipType=\(self.ownershipType),
+            verification=\(self.contents.verification)
             >
             """
     }
@@ -211,11 +225,12 @@ extension PeriodType: DefaultValueProvider {
         entitlement: CustomerInfoResponse.Entitlement,
         subscription: CustomerInfoResponse.Subscription,
         sandboxEnvironmentDetector: SandboxEnvironmentDetector,
-        requestDate: Date?
+        verification: VerificationResult,
+        requestDate: Date
     ) {
         self.contents = .init(
             identifier: identifier,
-            isActive: Self.isDateActive(expirationDate: entitlement.expiresDate, forRequestDate: requestDate),
+            isActive: CustomerInfo.isDateActive(expirationDate: entitlement.expiresDate, for: requestDate),
             willRenew: Self.willRenewWithExpirationDate(expirationDate: subscription.expiresDate,
                                                         store: subscription.store,
                                                         unsubscribeDetectedAt: subscription.unsubscribeDetectedAt,
@@ -226,10 +241,12 @@ extension PeriodType: DefaultValueProvider {
             expirationDate: subscription.expiresDate,
             store: subscription.store,
             productIdentifier: entitlement.productIdentifier,
+            productPlanIdentifier: subscription.productPlanIdentifier,
             isSandbox: subscription.isSandbox,
             unsubscribeDetectedAt: subscription.unsubscribeDetectedAt,
             billingIssueDetectedAt: subscription.billingIssuesDetectedAt,
-            ownershipType: subscription.ownershipType
+            ownershipType: subscription.ownershipType,
+            verification: verification
         )
         self.sandboxEnvironmentDetector = sandboxEnvironmentDetector
 
@@ -272,23 +289,14 @@ public extension EntitlementInfo {
 
 }
 
-// MARK: - Private
+// MARK: - Internal
 
 private extension EntitlementInfo {
 
-    class func isDateActive(expirationDate: Date?, forRequestDate requestDate: Date?) -> Bool {
-        guard let expirationDate = expirationDate else {
-            return true
-        }
-
-        let referenceDate: Date = requestDate ?? Date()
-        return expirationDate.timeIntervalSince(referenceDate) >= 0
-    }
-
-    class func willRenewWithExpirationDate(expirationDate: Date?,
-                                           store: Store,
-                                           unsubscribeDetectedAt: Date?,
-                                           billingIssueDetectedAt: Date?) -> Bool {
+    static func willRenewWithExpirationDate(expirationDate: Date?,
+                                            store: Store,
+                                            unsubscribeDetectedAt: Date?,
+                                            billingIssueDetectedAt: Date?) -> Bool {
         let isPromo = store == .promotional
         let isLifetime = expirationDate == nil
         let hasUnsubscribed = unsubscribeDetectedAt != nil
@@ -319,10 +327,12 @@ private extension EntitlementInfo {
         let expirationDate: Date?
         let store: Store
         let productIdentifier: String
+        let productPlanIdentifier: String?
         let isSandbox: Bool
         let unsubscribeDetectedAt: Date?
         let billingIssueDetectedAt: Date?
         let ownershipType: PurchaseOwnershipType
+        let verification: VerificationResult
 
     }
 

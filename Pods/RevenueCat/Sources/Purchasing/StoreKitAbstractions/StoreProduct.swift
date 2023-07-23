@@ -78,7 +78,7 @@ public typealias SK2Product = StoreKit.Product
 
     @objc public var productIdentifier: String { self.product.productIdentifier }
 
-    @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 8.0, *)
+    @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
     @objc public var isFamilyShareable: Bool { self.product.isFamilyShareable }
 
     @available(iOS 12.0, macCatalyst 13.0, tvOS 12.0, macOS 10.14, watchOS 6.2, *)
@@ -124,7 +124,7 @@ internal protocol StoreProductType: Sendable {
     /// not the preferred language set on the device.
     var localizedTitle: String { get }
 
-    /// The ccurrency of the product's price.
+    /// The currency of the product's price.
     var currencyCode: String? { get }
 
     /// The decimal representation of the cost of the product, in local currency.
@@ -132,6 +132,7 @@ internal protocol StoreProductType: Sendable {
     ///
     /// #### Related Symbols
     /// - ``pricePerMonth``
+    /// - ``pricePerYear``
     var price: Decimal { get }
 
     /// The price of this product using ``priceFormatter``.
@@ -151,7 +152,7 @@ internal protocol StoreProductType: Sendable {
     ///
     /// #### Related Articles
     /// - https://support.apple.com/en-us/HT201079
-    @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 8.0, *)
+    @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
     var isFamilyShareable: Bool { get }
 
     /// The identifier of the subscription group to which the subscription belongs.
@@ -202,6 +203,7 @@ public extension StoreProduct {
     ///
     /// #### Related Symbols
     /// - ``pricePerMonth``
+    /// - ``pricePerYear``
     @objc(price) var priceDecimalNumber: NSDecimalNumber {
         return self.price as NSDecimalNumber
     }
@@ -211,6 +213,13 @@ public extension StoreProduct {
     @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
     @objc var pricePerMonth: NSDecimalNumber? {
         return self.subscriptionPeriod?.pricePerMonth(withTotalPrice: self.price) as NSDecimalNumber?
+    }
+
+    /// Calculates the price of this subscription product per year.
+    /// - Returns: `nil` if the product is not a subscription.
+    @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)
+    @objc var pricePerYear: NSDecimalNumber? {
+        return self.subscriptionPeriod?.pricePerYear(withTotalPrice: self.price) as NSDecimalNumber?
     }
 
     /// The price of the `introductoryPrice` formatted using ``priceFormatter``.
@@ -228,6 +237,7 @@ public extension StoreProduct {
 
 }
 
+#if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
 @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
 public extension StoreProduct {
     /// Finds the subset of ``discounts`` that's eligible for the current user.
@@ -240,6 +250,7 @@ public extension StoreProduct {
         return await Purchases.shared.eligiblePromotionalOffers(forProduct: self)
     }
 }
+#endif
 
 // MARK: - Wrapper constructors / getters
 

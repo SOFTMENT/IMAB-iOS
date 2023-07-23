@@ -13,22 +13,28 @@
 
 import Foundation
 
-final class BackendConfiguration {
+class BackendConfiguration {
 
     let httpClient: HTTPClient
 
     let operationDispatcher: OperationDispatcher
     let operationQueue: OperationQueue
     let dateProvider: DateProvider
+    let systemInfo: SystemInfo
+    let offlineCustomerInfoCreator: OfflineCustomerInfoCreator?
 
     init(httpClient: HTTPClient,
          operationDispatcher: OperationDispatcher,
          operationQueue: OperationQueue,
+         systemInfo: SystemInfo,
+         offlineCustomerInfoCreator: OfflineCustomerInfoCreator?,
          dateProvider: DateProvider = DateProvider()) {
         self.httpClient = httpClient
         self.operationDispatcher = operationDispatcher
         self.operationQueue = operationQueue
+        self.offlineCustomerInfoCreator = offlineCustomerInfoCreator
         self.dateProvider = dateProvider
+        self.systemInfo = systemInfo
     }
 
     func clearCache() {
@@ -37,16 +43,18 @@ final class BackendConfiguration {
 
 }
 
+extension BackendConfiguration: NetworkConfiguration {}
+
 extension BackendConfiguration {
 
     /// Adds the `operation` to the `OperationQueue` (based on `CallbackCacheStatus`) potentially adding a random delay.
-    func addCacheableOperation(
-        _ operation: CacheableNetworkOperation,
+    func addCacheableOperation<T: CacheableNetworkOperation>(
+        with factory: CacheableNetworkOperationFactory<T>,
         withRandomDelay randomDelay: Bool,
         cacheStatus: CallbackCacheStatus
     ) {
         self.operationDispatcher.dispatchOnWorkerThread(withRandomDelay: randomDelay) {
-            self.operationQueue.addCacheableOperation(operation, cacheStatus: cacheStatus)
+            self.operationQueue.addCacheableOperation(with: factory, cacheStatus: cacheStatus)
         }
     }
 
@@ -54,4 +62,5 @@ extension BackendConfiguration {
 
 // @unchecked because:
 // - `OperationQueue` is not `Sendable` as of Swift 5.7
+// - Class is not `final` (it's mocked). This implicitly makes subclasses `Sendable` even if they're not thread-safe.
 extension BackendConfiguration: @unchecked Sendable {}

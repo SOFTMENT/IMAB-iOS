@@ -17,11 +17,12 @@ import UIKit
 
 extension UIApplication {
 
-    @available(iOS 13.0, *)
+    @available(iOS 13.0, macCatalystApplicationExtension 13.1, *)
     @available(macOS, unavailable)
     @available(watchOS, unavailable)
     @available(watchOSApplicationExtension, unavailable)
     @available(tvOS, unavailable)
+    @MainActor
     var currentWindowScene: UIWindowScene? {
         var scenes = self
             .connectedScenes
@@ -30,7 +31,7 @@ extension UIApplication {
         #if DEBUG && targetEnvironment(simulator)
         // Running StoreKitUnitTests might not always have an active scene
         // Sporadically, the only scene will be `foregroundInactive` or `background`
-        if scenes.isEmpty, UIApplication.isRunningUnitTests {
+        if scenes.isEmpty, ProcessInfo.isRunningUnitTests {
             scenes = self.connectedScenes
         }
         #endif
@@ -39,15 +40,5 @@ extension UIApplication {
     }
 
 }
-
-#if DEBUG
-
-private extension UIApplication {
-    static var isRunningUnitTests: Bool {
-        return ProcessInfo.processInfo.environment.keys.contains("XCTestConfigurationFilePath")
-    }
-}
-
-#endif
 
 #endif

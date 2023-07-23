@@ -1,0 +1,23 @@
+{
+  "images" : [
+    {
+      "filename" : "heart-shape-outline-with-lining-at-right-edge.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "heart-shape-outline-with-lining-at-right-edge@2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "heart-shape-outline-with-lining-at-right-edge@3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

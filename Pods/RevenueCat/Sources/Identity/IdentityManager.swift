@@ -32,7 +32,7 @@ class IdentityManager: CurrentUserProvider {
     private let customerInfoManager: CustomerInfoManager
     private let attributeSyncing: AttributeSyncing
 
-    internal static let anonymousRegex = #"\$RCAnonymousID:([a-z0-9]{32})$"#
+    private static let anonymousRegex = #"\$RCAnonymousID:([a-z0-9]{32})$"#
 
     init(
         deviceCache: DeviceCache,
@@ -59,10 +59,11 @@ class IdentityManager: CurrentUserProvider {
 
         deviceCache.cache(appUserID: appUserID)
         deviceCache.cleanupSubscriberAttributes()
+        self.invalidateCachesIfNeeded(appUserID: appUserID)
     }
 
     var currentAppUserID: String {
-        guard let appUserID = deviceCache.cachedAppUserID else {
+        guard let appUserID = self.deviceCache.cachedAppUserID else {
             fatalError(Strings.identity.null_currentappuserid.description)
         }
 
@@ -70,11 +71,10 @@ class IdentityManager: CurrentUserProvider {
     }
 
     var currentUserIsAnonymous: Bool {
+        let userID = self.currentAppUserID
 
-        let anonymousFoundRange = currentAppUserID.range(of: IdentityManager.anonymousRegex,
-                                                         options: .regularExpression)
-        let currentAppUserIDLooksAnonymous = anonymousFoundRange != nil
-        let isLegacyAnonymousAppUserID = currentAppUserID == deviceCache.cachedLegacyAppUserID
+        lazy var currentAppUserIDLooksAnonymous = Self.userIsAnonymous(userID)
+        lazy var isLegacyAnonymousAppUserID = userID == self.deviceCache.cachedLegacyAppUserID
 
         return currentAppUserIDLooksAnonymous || isLegacyAnonymousAppUserID
     }
@@ -91,8 +91,23 @@ class IdentityManager: CurrentUserProvider {
         }
     }
 
+    func switchUser(to newAppUserID: String) {
+        Logger.debug(Strings.identity.switching_user(newUserID: newAppUserID))
+        self.resetCacheAndSave(newUserID: newAppUserID)
+    }
+
     static func generateRandomID() -> String {
         "$RCAnonymousID:\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased())"
+    }
+
+}
+
+extension IdentityManager {
+
+    static func userIsAnonymous(_ appUserId: String) -> Bool {
+        let anonymousFoundRange = appUserId.range(of: IdentityManager.anonymousRegex,
+                                                  options: .regularExpression)
+        return anonymousFoundRange != nil
     }
 
 }
@@ -100,6 +115,7 @@ class IdentityManager: CurrentUserProvider {
 private extension IdentityManager {
 
     func performLogIn(appUserID: String, completion: @escaping IdentityAPI.LogInResponseHandler) {
+        let oldAppUserID = self.currentAppUserID
         let newAppUserID = appUserID.trimmingWhitespacesAndNewLines
         guard !newAppUserID.isEmpty else {
             Logger.error(Strings.identity.logging_in_with_empty_appuserid)
@@ -107,9 +123,9 @@ private extension IdentityManager {
             return
         }
 
-        guard newAppUserID != currentAppUserID else {
+        guard newAppUserID != oldAppUserID else {
             Logger.warn(Strings.identity.logging_in_with_same_appuserid)
-            self.customerInfoManager.customerInfo(appUserID: currentAppUserID,
+            self.customerInfoManager.customerInfo(appUserID: oldAppUserID,
                                                   fetchPolicy: .cachedOrFetched) { @Sendable result in
                 completion(
                     result.map { (info: $0, created: false) }
@@ -118,10 +134,12 @@ private extension IdentityManager {
             return
         }
 
-        self.backend.identity.logIn(currentAppUserID: currentAppUserID, newAppUserID: newAppUserID) { result in
+        self.backend.identity.logIn(currentAppUserID: oldAppUserID, newAppUserID: newAppUserID) { result in
             if case let .success((customerInfo, _)) = result {
-                self.deviceCache.clearCaches(oldAppUserID: self.currentAppUserID, andSaveWithNewUserID: newAppUserID)
+                self.deviceCache.clearCaches(oldAppUserID: oldAppUserID, andSaveWithNewUserID: newAppUserID)
                 self.customerInfoManager.cache(customerInfo: customerInfo, appUserID: newAppUserID)
+                self.copySubscriberAttributesToNewUserIfOldIsAnonymous(oldAppUserID: oldAppUserID,
+                                                                       newAppUserID: newAppUserID)
             }
 
             completion(result)
@@ -136,7 +154,7 @@ private extension IdentityManager {
             return
         }
 
-        self.resetUserIDCache()
+        self.resetCacheAndSave(newUserID: Self.generateRandomID())
         Logger.info(Strings.identity.log_out_success)
         completion(nil)
     }
@@ -150,10 +168,35 @@ extension IdentityManager: @unchecked Sendable {}
 
 private extension IdentityManager {
 
-    func resetUserIDCache() {
-        deviceCache.clearCaches(oldAppUserID: currentAppUserID, andSaveWithNewUserID: Self.generateRandomID())
-        deviceCache.clearLatestNetworkAndAdvertisingIdsSent(appUserID: currentAppUserID)
-        backend.clearHTTPClientCaches()
+    func resetCacheAndSave(newUserID: String) {
+        self.deviceCache.clearCaches(oldAppUserID: currentAppUserID, andSaveWithNewUserID: newUserID)
+        self.deviceCache.clearLatestNetworkAndAdvertisingIdsSent(appUserID: currentAppUserID)
+        self.backend.clearHTTPClientCaches()
+    }
+
+    func copySubscriberAttributesToNewUserIfOldIsAnonymous(oldAppUserID: String, newAppUserID: String) {
+        guard Self.userIsAnonymous(oldAppUserID) else {
+            return
+        }
+        self.deviceCache.copySubscriberAttributes(oldAppUserID: oldAppUserID, newAppUserID: newAppUserID)
+    }
+
+    func invalidateCachesIfNeeded(appUserID: String) {
+        if self.shouldInvalidateCaches(for: appUserID) {
+            Logger.info(Strings.identity.invalidating_cached_customer_info)
+            self.deviceCache.clearCustomerInfoCache(appUserID: appUserID)
+            self.backend.clearHTTPClientCaches()
+        }
+    }
+
+    private func shouldInvalidateCaches(for appUserID: String) -> Bool {
+        guard #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *),
+              self.backend.signatureVerificationEnabled,
+              let info = self.customerInfoManager.cachedCustomerInfo(appUserID: appUserID) else {
+            return false
+        }
+
+        return info.entitlements.verification == .notRequested
     }
 
 }

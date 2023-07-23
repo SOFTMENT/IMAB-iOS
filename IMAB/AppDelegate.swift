@@ -9,7 +9,6 @@ import UIKit
 import IQKeyboardManagerSwift
 import GoogleSignIn
 import Firebase
-import FirebaseMessaging
 import FBSDKCoreKit
 import RevenueCat
 import GooglePlaces

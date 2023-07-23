@@ -15,7 +15,7 @@ import Foundation
 
 final class CustomerAPI {
 
-    typealias CustomerInfoResponseHandler = (Result<CustomerInfo, BackendError>) -> Void
+    typealias CustomerInfoResponseHandler = Backend.ResponseHandler<CustomerInfo>
     typealias SimpleResponseHandler = (BackendError?) -> Void
 
     private let backendConfig: BackendConfiguration
@@ -30,16 +30,24 @@ final class CustomerAPI {
 
     func getCustomerInfo(appUserID: String,
                          withRandomDelay randomDelay: Bool,
+                         allowComputingOffline: Bool,
                          completion: @escaping CustomerInfoResponseHandler) {
         let config = NetworkOperation.UserSpecificConfiguration(httpClient: self.backendConfig.httpClient,
                                                                 appUserID: appUserID)
 
-        let operation = GetCustomerInfoOperation(configuration: config,
-                                                 customerInfoCallbackCache: self.customerInfoCallbackCache)
+        let factory = GetCustomerInfoOperation.createFactory(
+            configuration: config,
+            customerInfoCallbackCache: self.customerInfoCallbackCache,
+            offlineCreator: allowComputingOffline
+                ? self.backendConfig.offlineCustomerInfoCreator
+                : nil
+        )
 
-        let callback = CustomerInfoCallback(operation: operation, completion: completion)
+        let callback = CustomerInfoCallback(cacheKey: factory.cacheKey,
+                                            source: factory.operationType,
+                                            completion: completion)
         let cacheStatus = self.customerInfoCallbackCache.addOrAppendToPostReceiptDataOperation(callback: callback)
-        self.backendConfig.addCacheableOperation(operation,
+        self.backendConfig.addCacheableOperation(with: factory,
                                                  withRandomDelay: randomDelay,
                                                  cacheStatus: cacheStatus)
     }
@@ -79,43 +87,56 @@ final class CustomerAPI {
         self.backendConfig.operationQueue.addOperation(postAttributionDataOperation)
     }
 
-    // swiftlint:disable:next function_parameter_count
     func post(receiptData: Data,
-              appUserID: String,
-              isRestore: Bool,
               productData: ProductRequestData?,
-              presentedOfferingIdentifier offeringIdentifier: String?,
+              transactionData: PurchasedTransactionData,
               observerMode: Bool,
-              initiationSource: ProductRequestData.InitiationSource,
-              subscriberAttributes subscriberAttributesByKey: SubscriberAttribute.Dictionary?,
               completion: @escaping CustomerAPI.CustomerInfoResponseHandler) {
-        let attributionStatus = self.attributionFetcher.authorizationStatus
-        var subscriberAttributesByKey = subscriberAttributesByKey ?? [:]
-        let consentStatus = SubscriberAttribute(withKey: ReservedSubscriberAttribute.consentStatus.rawValue,
-                                                value: attributionStatus.description,
-                                                dateProvider: self.backendConfig.dateProvider)
-        subscriberAttributesByKey[ReservedSubscriberAttribute.consentStatus.key] = consentStatus
+        var subscriberAttributesToPost: SubscriberAttribute.Dictionary?
+
+        if !self.backendConfig.systemInfo.dangerousSettings.customEntitlementComputation {
+            subscriberAttributesToPost = transactionData.unsyncedAttributes ?? [:]
+            let attributionStatus = self.attributionFetcher.authorizationStatus
+            let consentStatus = SubscriberAttribute(attribute: ReservedSubscriberAttribute.consentStatus,
+                                                    value: attributionStatus.description,
+                                                    dateProvider: self.backendConfig.dateProvider)
+            subscriberAttributesToPost?[consentStatus.key] = consentStatus
+        }
 
         let config = NetworkOperation.UserSpecificConfiguration(httpClient: self.backendConfig.httpClient,
-                                                                appUserID: appUserID)
+                                                                appUserID: transactionData.appUserID)
 
-        let postData = PostReceiptDataOperation.PostData(appUserID: appUserID,
-                                                         receiptData: receiptData,
-                                                         isRestore: isRestore,
-                                                         productData: productData,
-                                                         presentedOfferingIdentifier: offeringIdentifier,
-                                                         observerMode: observerMode,
-                                                         initiationSource: initiationSource,
-                                                         subscriberAttributesByKey: subscriberAttributesByKey)
-        let postReceiptOperation = PostReceiptDataOperation(configuration: config,
-                                                            postData: postData,
-                                                            customerInfoCallbackCache: self.customerInfoCallbackCache)
+        let postData = PostReceiptDataOperation.PostData(
+            transactionData: transactionData.withAttributesToPost(subscriberAttributesToPost),
+            productData: productData,
+            receiptData: receiptData,
+            observerMode: observerMode
+        )
+        let factory = PostReceiptDataOperation.createFactory(
+            configuration: config,
+            postData: postData,
+            customerInfoCallbackCache: self.customerInfoCallbackCache,
+            offlineCustomerInfoCreator: self.backendConfig.offlineCustomerInfoCreator
+        )
 
-        let callbackObject = CustomerInfoCallback(operation: postReceiptOperation, completion: completion)
+        let callbackObject = CustomerInfoCallback(cacheKey: factory.cacheKey,
+                                                  source: PostReceiptDataOperation.self,
+                                                  completion: completion)
 
         let cacheStatus = customerInfoCallbackCache.add(callbackObject)
 
-        self.backendConfig.operationQueue.addCacheableOperation(postReceiptOperation, cacheStatus: cacheStatus)
+        self.backendConfig.operationQueue.addCacheableOperation(with: factory, cacheStatus: cacheStatus)
+    }
+
+}
+
+private extension PurchasedTransactionData {
+
+    func withAttributesToPost(_ newAttributes: SubscriberAttribute.Dictionary?) -> Self {
+        var copy = self
+        copy.unsyncedAttributes = newAttributes
+
+        return copy
     }
 
 }

@@ -39,7 +39,7 @@ final class AttributionPoster {
               fromNetwork network: AttributionNetwork,
               networkUserId: String?) {
         Logger.debug(Strings.attribution.instance_configured_posting_attribution)
-        if data["rc_appsflyer_id"] != nil {
+        if data[AttributionKey.AppsFlyer.id.rawValue] != nil {
             Logger.warn(Strings.attribution.appsflyer_id_deprecated)
         }
 
@@ -63,21 +63,21 @@ final class AttributionPoster {
         var newData = data
 
         if let identifierForAdvertisers = identifierForAdvertisers {
-            newData["rc_idfa"] = identifierForAdvertisers
+            newData[AttributionKey.idfa.rawValue] = identifierForAdvertisers
         } else {
-            newData.removeValue(forKey: "rc_idfa")
+            newData.removeValue(forKey: AttributionKey.idfa.rawValue)
         }
 
         if let identifierForVendor = attributionFetcher.identifierForVendor {
-            newData["rc_idfv"] = identifierForVendor
+            newData[AttributionKey.idfv.rawValue] = identifierForVendor
         } else {
-            newData.removeValue(forKey: "rc_idfv")
+            newData.removeValue(forKey: AttributionKey.idfv.rawValue)
         }
 
         if let networkUserId = networkUserId {
-            newData["rc_attribution_network_id"] = networkUserId
+            newData[AttributionKey.networkID.rawValue] = networkUserId
         } else {
-            newData.removeValue(forKey: "rc_attribution_network_id")
+            newData.removeValue(forKey: AttributionKey.networkID.rawValue)
         }
 
         if !newData.isEmpty {
@@ -128,15 +128,37 @@ final class AttributionPoster {
     @available(tvOS, unavailable)
     @available(watchOS, unavailable)
     func postAdServicesTokenIfNeeded() {
-        guard latestNetworkIdAndAdvertisingIdentifierSent(network: .adServices) == nil else {
-            return
-        }
-
-        guard let attributionToken = attributionFetcher.adServicesToken else {
-            return
-        }
+        guard let attributionToken = self.adServicesTokenToPostIfNeeded else { return }
 
         self.post(adServicesToken: attributionToken)
+    }
+
+    var adServicesTokenToPostIfNeeded: String? {
+        #if os(tvOS) || os(watchOS)
+        return nil
+        #else
+        guard #available(iOS 14.3, macOS 11.1, macCatalyst 14.3, *) else {
+            return nil
+        }
+
+        guard self.latestNetworkIdAndAdvertisingIdentifierSent(network: .adServices) == nil else {
+            return nil
+        }
+
+        return self.attributionFetcher.adServicesToken
+        #endif
+    }
+
+    @discardableResult
+    func markAdServicesToken(_ token: String, asSyncedFor userID: String) -> [AttributionNetwork: String] {
+        Logger.info(Strings.attribution.adservices_marking_as_synced(appUserID: userID))
+
+        var newDictToCache = self.deviceCache.latestAdvertisingIdsByNetworkSent(appUserID: userID)
+        newDictToCache[AttributionNetwork.adServices] = token
+
+        self.deviceCache.set(latestAdvertisingIdsByNetworkSent: newDictToCache, appUserID: userID)
+
+        return newDictToCache
     }
 
     func postPostponedAttributionDataIfNeeded() {
@@ -167,11 +189,9 @@ final class AttributionPoster {
         let currentAppUserID = self.currentUserProvider.currentAppUserID
 
         // set the cache in advance to avoid multiple post calls
-        var newDictToCache = self.deviceCache.latestAdvertisingIdsByNetworkSent(appUserID: currentAppUserID)
-        newDictToCache[AttributionNetwork.adServices] = adServicesToken
-        self.deviceCache.set(latestAdvertisingIdsByNetworkSent: newDictToCache, appUserID: currentAppUserID)
+        var newDictToCache = self.markAdServicesToken(adServicesToken, asSyncedFor: currentAppUserID)
 
-         backend.post(adServicesToken: adServicesToken, appUserID: currentAppUserID) { error in
+        self.backend.post(adServicesToken: adServicesToken, appUserID: currentAppUserID) { error in
              guard let error = error else {
                  Logger.debug(Strings.attribution.adservices_token_post_succeeded)
                  return

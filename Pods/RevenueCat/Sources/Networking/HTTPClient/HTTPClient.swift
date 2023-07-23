@@ -17,7 +17,8 @@ import Foundation
 
 class HTTPClient {
 
-    typealias RequestHeaders = [String: String]
+    typealias RequestHeaders = HTTPRequest.Headers
+    typealias ResponseHeaders = HTTPResponse<HTTPEmptyResponseBody>.Headers
     typealias Completion<Value: HTTPResponseBody> = (HTTPResponse<Value>.Result) -> Void
 
     let systemInfo: SystemInfo
@@ -29,28 +30,50 @@ class HTTPClient {
     private let state: Atomic<State> = .init(.initial)
     private let eTagManager: ETagManager
     private let dnsChecker: DNSCheckerType.Type
+    private let signing: SigningType.Type
 
     init(apiKey: String,
          systemInfo: SystemInfo,
          eTagManager: ETagManager,
          dnsChecker: DNSCheckerType.Type = DNSChecker.self,
+         signing: SigningType.Type = Signing.self,
          requestTimeout: TimeInterval = Configuration.networkTimeoutDefault) {
         let config = URLSessionConfiguration.ephemeral
         config.httpMaximumConnectionsPerHost = 1
         config.timeoutIntervalForRequest = requestTimeout
         config.timeoutIntervalForResource = requestTimeout
-        self.session = URLSession(configuration: config)
+        config.urlCache = nil // We implement our own caching with `ETagManager`.
+        self.session = URLSession(configuration: config,
+                                  delegate: RedirectLoggerSessionDelegate(),
+                                  delegateQueue: nil)
         self.systemInfo = systemInfo
         self.eTagManager = eTagManager
         self.dnsChecker = dnsChecker
+        self.signing = signing
         self.timeout = requestTimeout
         self.apiKey = apiKey
         self.authHeaders = HTTPClient.authorizationHeader(withAPIKey: apiKey)
     }
 
-    func perform<Value: HTTPResponseBody>(_ request: HTTPRequest, completionHandler: Completion<Value>?) {
+    /// - Parameter verificationMode: if `nil`, this will default to `SystemInfo.responseVerificationMode`
+    func perform<Value: HTTPResponseBody>(
+        _ request: HTTPRequest,
+        with verificationMode: Signing.ResponseVerificationMode? = nil,
+        completionHandler: Completion<Value>?
+    ) {
+        #if DEBUG
+        guard !self.systemInfo.dangerousSettings.internalSettings.forceServerErrors else {
+            Logger.warn(Strings.network.api_request_forcing_server_error(request))
+            completionHandler?(
+                .failure(.errorResponse(Self.serverErrorResponse, .internalServerError))
+            )
+            return
+        }
+        #endif
+
         self.perform(request: .init(httpRequest: request,
-                                    headers: request.path.authenticated ? self.authHeaders : [:],
+                                    authHeaders: self.authHeaders,
+                                    verificationMode: verificationMode ?? self.systemInfo.responseVerificationMode,
                                     completionHandler: completionHandler))
     }
 
@@ -58,12 +81,40 @@ class HTTPClient {
         self.eTagManager.clearCaches()
     }
 
+    var signatureVerificationEnabled: Bool {
+        return self.systemInfo.responseVerificationMode.isEnabled
+    }
+
 }
 
 extension HTTPClient {
 
     static func authorizationHeader(withAPIKey apiKey: String) -> RequestHeaders {
-        return ["Authorization": "Bearer \(apiKey)"]
+        return [RequestHeader.authorization.rawValue: "Bearer \(apiKey)"]
+    }
+
+    static func nonceHeader(with data: Data) -> RequestHeaders {
+        return [RequestHeader.nonce.rawValue: data.base64EncodedString()]
+    }
+
+    enum RequestHeader: String {
+
+        case authorization = "Authorization"
+        case nonce = "X-Nonce"
+        case eTag = "X-RevenueCat-ETag"
+        case eTagValidationTime = "X-RC-Last-Refresh-Time"
+
+    }
+
+    enum ResponseHeader: String {
+
+        case eTag = "X-RevenueCat-ETag"
+        case location = "Location"
+        case signature = "X-Signature"
+        case requestDate = "X-RevenueCat-Request-Time"
+        case contentType = "Content-Type"
+        case isLoadShedder = "X-RevenueCat-Fortress"
+
     }
 
 }
@@ -87,14 +138,17 @@ private extension HTTPClient {
 
         var httpRequest: HTTPRequest
         var headers: HTTPClient.RequestHeaders
+        var verificationMode: Signing.ResponseVerificationMode
         var completionHandler: HTTPClient.Completion<Data>?
         var retried: Bool = false
 
         init<Value: HTTPResponseBody>(httpRequest: HTTPRequest,
-                                      headers: HTTPClient.RequestHeaders,
+                                      authHeaders: HTTPClient.RequestHeaders,
+                                      verificationMode: Signing.ResponseVerificationMode,
                                       completionHandler: HTTPClient.Completion<Value>?) {
-            self.httpRequest = httpRequest
-            self.headers = headers
+            self.httpRequest = httpRequest.requestAddingNonceIfRequired(with: verificationMode)
+            self.headers = self.httpRequest.headers(with: authHeaders)
+            self.verificationMode = verificationMode
 
             if let completionHandler = completionHandler {
                 self.completionHandler = { result in
@@ -138,8 +192,6 @@ private extension HTTPClient {
 private extension HTTPClient {
 
     var defaultHeaders: [String: String] {
-        let observerMode = !self.systemInfo.finishTransactions
-
         var headers: [String: String] = [
             "content-type": "application/json",
             "X-Version": SystemInfo.frameworkVersion,
@@ -149,8 +201,8 @@ private extension HTTPClient {
             "X-Client-Version": SystemInfo.appVersion,
             "X-Client-Build-Version": SystemInfo.buildVersion,
             "X-Client-Bundle-ID": SystemInfo.bundleIdentifier,
-            "X-StoreKit2-Setting": "\(self.systemInfo.storeKit2Setting.debugDescription)",
-            "X-Observer-Mode-Enabled": "\(observerMode)",
+            "X-StoreKit2-Enabled": "\(self.systemInfo.storeKit2Setting.isEnabledAndAvailable)",
+            "X-Observer-Mode-Enabled": "\(self.systemInfo.observerMode)",
             "X-Is-Sandbox": "\(self.systemInfo.isSandbox)"
         ]
 
@@ -161,8 +213,16 @@ private extension HTTPClient {
         if let idfv = systemInfo.identifierForVendor {
             headers["X-Apple-Device-Identifier"] = idfv
         }
+
+        if systemInfo.dangerousSettings.customEntitlementComputation {
+            headers["X-Custom-Entitlements-Computation"] = "\(true)"
+        }
+
         return headers
     }
+
+    static let serverErrorResponse: ErrorResponse = .init(code: .internalServerError,
+                                                          originalCode: BackendErrorCode.unknownBackendError.rawValue)
 
     func perform(request: Request) {
         if !request.retried {
@@ -214,17 +274,24 @@ private extension HTTPClient {
 
         let statusCode = HTTPStatusCode(rawValue: httpURLResponse.statusCode)
 
-        Logger.debug(Strings.network.api_request_completed(request.httpRequest,
-                                                           httpCode: statusCode))
-
         return Result
             .success(dataIfAvailable(statusCode))
-            .mapSuccessToOptionalHTTPResult(statusCode)
-            .map {
-                self.eTagManager.httpResultFromCacheOrBackend(with: httpURLResponse,
-                                                              data: $0.body,
-                                                              request: urlRequest,
-                                                              retried: request.retried)
+            .mapToResponse(response: httpURLResponse,
+                           request: request.httpRequest,
+                           signing: self.signing(for: request.httpRequest),
+                           verificationMode: request.verificationMode)
+            .map { (response) -> HTTPResponse<Data>? in
+                guard let cachedResponse = self.eTagManager.httpResultFromCacheOrBackend(
+                    with: response,
+                    request: urlRequest,
+                    retried: request.retried
+                ) else {
+                    return nil
+                }
+
+                return cachedResponse
+                    .copy(with: .from(cache: cachedResponse.verificationResult,
+                                      response: response.verificationResult))
             }
             .asOptionalResult?
             .convertUnsuccessfulResponseToError()
@@ -235,6 +302,8 @@ private extension HTTPClient {
                 urlRequest: URLRequest,
                 data: Data?,
                 error networkError: Error?) {
+        RCTestAssertNotMainThread()
+
         let response = self.parse(
             urlResponse: urlResponse,
             request: request,
@@ -244,6 +313,25 @@ private extension HTTPClient {
         )
 
         if let response = response {
+            switch response {
+            case let .success(response):
+                Logger.debug(Strings.network.api_request_completed(
+                    request.httpRequest,
+                    // Getting status code from the original response to detect 304s
+                    // If that can't be extracted, get status code from the parsed response.
+                    httpCode: urlResponse?.httpStatusCode ?? response.statusCode
+                ))
+
+                if response.isLoadShedder {
+                    Logger.debug(Strings.network.request_handled_by_load_shedder(request.httpRequest.path))
+                }
+
+            case let .failure(error):
+                Logger.debug(Strings.network.api_request_failed(request.httpRequest,
+                                                                httpCode: urlResponse?.httpStatusCode,
+                                                                error: error))
+            }
+
             request.completionHandler?(response)
         } else {
             Logger.debug(Strings.network.retrying_request(httpMethod: request.method.httpMethod,
@@ -277,17 +365,16 @@ private extension HTTPClient {
         let urlRequest = self.convert(request: request.adding(defaultHeaders: self.defaultHeaders))
 
         guard let urlRequest = urlRequest else {
-            Logger.error("Could not create request to \(request.path)")
+            let error: NetworkError = .unableToCreateRequest(request.httpRequest.path)
 
-            request.completionHandler?(
-                .failure(.unableToCreateRequest(request.httpRequest.path))
-            )
+            Logger.error(error.description)
+            request.completionHandler?(.failure(error))
             return
         }
 
         Logger.debug(Strings.network.api_request_started(request.httpRequest))
 
-        let task = session.dataTask(with: urlRequest) { (data, urlResponse, error) -> Void in
+        let task = self.session.dataTask(with: urlRequest) { (data, urlResponse, error) -> Void in
             self.handle(urlResponse: urlResponse,
                         request: request,
                         urlRequest: urlRequest,
@@ -304,13 +391,10 @@ private extension HTTPClient {
 
         var urlRequest = URLRequest(url: requestURL)
         urlRequest.httpMethod = request.method.httpMethod
+        urlRequest.allHTTPHeaderFields = self.headers(for: request, urlRequest: urlRequest)
 
-        let eTagHeader = eTagManager.eTagHeader(for: urlRequest, refreshETag: request.retried)
-        let headersWithETag = request.headers.merging(eTagHeader)
-
-        urlRequest.allHTTPHeaderFields = headersWithETag
         do {
-            urlRequest.httpBody = try request.httpRequest.requestBody?.asData()
+            urlRequest.httpBody = try request.httpRequest.requestBody?.jsonEncodedData
         } catch {
             Logger.error(Strings.network.creating_json_error(error: error.localizedDescription))
             return nil
@@ -319,9 +403,66 @@ private extension HTTPClient {
         return urlRequest
     }
 
+    private func headers(for request: Request, urlRequest: URLRequest) -> HTTPClient.RequestHeaders {
+        if request.httpRequest.path.shouldSendEtag {
+            let eTagHeader = self.eTagManager.eTagHeader(
+                for: urlRequest,
+                withSignatureVerification: request.httpRequest.nonce != nil,
+                refreshETag: request.retried
+            )
+            return request.headers.merging(eTagHeader)
+        } else {
+            return request.headers
+        }
+    }
+
+    private func signing(for request: HTTPRequest) -> SigningType.Type {
+        #if DEBUG
+        if self.systemInfo.dangerousSettings.internalSettings.forceSignatureFailures {
+            Logger.warn(Strings.network.api_request_forcing_signature_failure(request))
+            return FakeSigning.self
+        }
+        #endif
+
+        return self.signing
+    }
+
 }
 
 // MARK: - Extensions
+
+extension HTTPRequest {
+
+    func requestAddingNonceIfRequired(
+        with verificationMode: Signing.ResponseVerificationMode
+    ) -> HTTPRequest {
+        var result = self
+
+        if result.nonce == nil,
+           result.path.supportsSignatureValidation,
+           verificationMode.isEnabled,
+           #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *) {
+            result.addRandomNonce()
+        }
+
+        return result
+    }
+
+    func headers(with authHeaders: HTTPClient.RequestHeaders) -> HTTPClient.RequestHeaders {
+        var result: HTTPClient.RequestHeaders = [:]
+
+        if self.path.authenticated {
+            result += authHeaders
+        }
+
+        if let nonce = self.nonce {
+            result += HTTPClient.nonceHeader(with: nonce)
+        }
+
+        return result
+    }
+
+}
 
 extension HTTPRequest.Path {
 
@@ -337,20 +478,11 @@ extension HTTPRequest.Path {
 
 }
 
-private extension Encodable {
-
-    func asData() throws -> Data {
-        return try JSONEncoder.default.encode(self)
-    }
-
-}
-
 private extension NetworkError {
 
     /// Creates a `NetworkError` from any request `Error`.
     init(_ error: Error, dnsChecker: DNSCheckerType.Type) {
-        if dnsChecker.isBlockedAPIError(error),
-           let blockedError = dnsChecker.errorWithBlockedHostFromError(error) {
+        if let blockedError = dnsChecker.errorWithBlockedHostFromError(error) {
             Logger.error(blockedError.description)
             self = blockedError
         } else {
@@ -374,12 +506,7 @@ extension Result where Success == HTTPResponse<Data>, Failure == NetworkError {
         return self.flatMap { response in
             response.statusCode.isSuccessfulResponse
             ? .success(response)
-            : .failure(
-                .errorResponse(
-                    ErrorResponse.from(response.body),
-                    response.statusCode
-                )
-            )
+            : .failure(response.parseUnsuccessfulResponse())
         }
     }
 
@@ -390,6 +517,7 @@ extension Result where Success == HTTPResponse<Data>, Failure == NetworkError {
                 try response.mapBody { data in     // Convert the body of `HTTPResponse<Data>` from `Data` -> `Value`
                     try Value.create(with: data)   // Decode `Data` into `Value`
                 }
+                .copyWithNewRequestDate()         // Update request date for 304 responses
             }
             // Convert decoding errors into `NetworkError.decoding`
             .mapError { NetworkError.decoding($0, response.body) }
@@ -398,11 +526,34 @@ extension Result where Success == HTTPResponse<Data>, Failure == NetworkError {
 
 }
 
-private extension Result where Success == Data? {
+private extension HTTPResponse {
 
-    /// Converts a `Result<Data?, Error>` into `Result<HTTPResponse<Data?>, Failure>`
-    func mapSuccessToOptionalHTTPResult(_ statusCode: HTTPStatusCode) -> Result<HTTPResponse<Data?>, Failure> {
-        return self.map { HTTPResponse(statusCode: statusCode, body: $0) }
+    func copyWithNewRequestDate() -> Self {
+        // Update request time from server unless it failed verification.
+        guard self.verificationResult != .failed, let requestDate = self.requestDate else { return self }
+
+        return self.mapBody {
+            return $0.copy(with: requestDate)
+        }
+    }
+
+    var isLoadShedder: Bool {
+        return self.value(forHeaderField: HTTPClient.ResponseHeader.isLoadShedder.rawValue) == "true"
+    }
+
+}
+
+private extension HTTPResponse where Body == Data {
+
+    func parseUnsuccessfulResponse() -> NetworkError {
+        let isJSON = self.value(forHeaderField: HTTPClient.ResponseHeader.contentType.rawValue) == "application/json"
+
+        return .errorResponse(
+            isJSON
+                ? .from(self.body)
+                : .defaultResponse,
+            self.statusCode
+        )
     }
 
 }

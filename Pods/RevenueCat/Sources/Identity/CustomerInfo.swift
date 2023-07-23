@@ -24,7 +24,7 @@ import Foundation
     @objc public let entitlements: EntitlementInfos
 
     /// All *subscription* product identifiers with expiration dates in the future.
-    @objc public var activeSubscriptions: Set<String> { self.activeKeys(dates: expirationDatesByProductId) }
+    @objc public var activeSubscriptions: Set<String> { self.activeKeys(dates: self.expirationDatesByProductId) }
 
     /// All product identifiers purchases by the user regardless of expiration.
     @objc public let allPurchasedProductIdentifiers: Set<String>
@@ -116,7 +116,8 @@ import Foundation
             return false
         }
 
-        return self.data.response == other.data.response
+        return (self.data.response == other.data.response &&
+                self.data.entitlementVerification == other.data.entitlementVerification)
     }
 
     public override var hash: Int {
@@ -155,8 +156,12 @@ import Foundation
     private let data: Contents
 
     /// Initializes a `CustomerInfo` with the underlying data in the current schema version
-    convenience init(response: CustomerInfoResponse, sandboxEnvironmentDetector: SandboxEnvironmentDetector) {
-        self.init(data: .init(response: response, schemaVersion: Self.currentSchemaVersion),
+    convenience init(response: CustomerInfoResponse,
+                     entitlementVerification: VerificationResult,
+                     sandboxEnvironmentDetector: SandboxEnvironmentDetector) {
+        self.init(data: .init(response: response,
+                              entitlementVerification: entitlementVerification,
+                              schemaVersion: Self.currentSchemaVersion),
                   sandboxEnvironmentDetector: sandboxEnvironmentDetector)
     }
 
@@ -178,7 +183,8 @@ import Foundation
             entitlements: subscriber.entitlements,
             purchases: subscriber.allPurchasesByProductId,
             requestDate: response.requestDate,
-            sandboxEnvironmentDetector: sandboxEnvironmentDetector
+            sandboxEnvironmentDetector: sandboxEnvironmentDetector,
+            verification: data.entitlementVerification
         )
         self.nonSubscriptions = TransactionsFactory.nonSubscriptionTransactions(
             withSubscriptionsData: subscriber.nonSubscriptions
@@ -212,11 +218,32 @@ extension CustomerInfo {
         return self.data.schemaVersion
     }
 
-    var isInCurrentSchemaVersion: Bool {
-        return self.schemaVersion == Self.currentSchemaVersion
+    var schemaVersionIsCompatible: Bool {
+        guard let version = self.schemaVersion else { return false }
+
+        return Self.compatibleSchemaVersions.contains(version)
     }
 
     static let currentSchemaVersion = "3"
+
+    private static let compatibleSchemaVersions: Set<String> = [
+        // Version 3 is virtually identical to 2 (only difference is `Codable` vs manual decoding).
+        "2",
+        CustomerInfo.currentSchemaVersion
+    ]
+
+}
+
+extension CustomerInfo {
+
+    /// Creates a copy of this ``CustomerInfo`` modifying only the ``VerificationResult``.
+    func copy(with entitlementVerification: VerificationResult) -> Self {
+        guard entitlementVerification != self.data.entitlementVerification else { return self }
+
+        var copy = self.data
+        copy.entitlementVerification = entitlementVerification
+        return .init(data: copy)
+    }
 
 }
 
@@ -259,7 +286,18 @@ extension CustomerInfo: Codable {
 
 }
 
-extension CustomerInfo: HTTPResponseBody {}
+extension CustomerInfo: HTTPResponseBody {
+
+    /// Creates a copy of this ``CustomerInfo`` modifying only the `requestDate`.
+    func copy(with newRequestDate: Date) -> CustomerInfo {
+        Logger.verbose(Strings.customerInfo.updating_request_date(self, newRequestDate))
+
+        var copy = self.data
+        copy.response.requestDate = newRequestDate
+        return .init(data: copy)
+    }
+
+}
 
 // MARK: - Private
 
@@ -269,10 +307,14 @@ private extension CustomerInfo {
     struct Contents {
 
         var response: CustomerInfoResponse
+        var entitlementVerification: VerificationResult
         var schemaVersion: String?
 
-        init(response: CustomerInfoResponse, schemaVersion: String?) {
+        init(response: CustomerInfoResponse,
+             entitlementVerification: VerificationResult,
+             schemaVersion: String?) {
             self.response = response
+            self.entitlementVerification = entitlementVerification
             self.schemaVersion = schemaVersion
         }
 
@@ -287,6 +329,7 @@ extension CustomerInfo.Contents: Codable {
     private enum CodingKeys: String, CodingKey {
 
         case response
+        case entitlementVerification
         case schemaVersion
 
     }
@@ -295,6 +338,7 @@ extension CustomerInfo.Contents: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         try self.response.encode(to: encoder)
+        try container.encode(self.entitlementVerification, forKey: .entitlementVerification)
         // Always use current schema version when encoding
         try container.encode(CustomerInfo.currentSchemaVersion, forKey: .schemaVersion)
     }
@@ -303,33 +347,11 @@ extension CustomerInfo.Contents: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         self.response = try CustomerInfoResponse(from: decoder)
+        self.entitlementVerification = try container.decodeIfPresent(
+            VerificationResult.self,
+            forKey: .entitlementVerification
+        ) ?? .notRequested
         self.schemaVersion = try container.decodeIfPresent(String.self, forKey: .schemaVersion)
-    }
-
-}
-
-private extension CustomerInfo {
-
-    func activeKeys(dates: [String: Date?]) -> Set<String> {
-        return Set(
-            dates
-                .lazy
-                .filter {
-                    guard let date = $1 else { return true }
-                    return self.isAfterReferenceDate(date: date)
-                }
-                .map { key, _ in key }
-        )
-    }
-
-    func isAfterReferenceDate(date: Date) -> Bool { date.timeIntervalSince(self.requestDate) > 0 }
-
-    static func extractExpirationDates(_ subscriber: CustomerInfoResponse.Subscriber) -> [String: Date?] {
-        return subscriber.subscriptions.mapValues { $0.expiresDate }
-    }
-
-    static func extractPurchaseDates(_ subscriber: CustomerInfoResponse.Subscriber) -> [String: Date?] {
-        return subscriber.allTransactionsByProductId.mapValues { $0.purchaseDate }
     }
 
 }

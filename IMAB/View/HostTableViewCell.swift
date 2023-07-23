@@ -12,11 +12,8 @@ class HostTableViewCell : UITableViewCell {
     
     @IBOutlet weak var mProfile: UIImageView!
     @IBOutlet weak var mName: UILabel!
-    @IBOutlet weak var mAddress: UILabel!
-    @IBOutlet weak var mViewProfile: UIButton!
-    @IBOutlet weak var mFav: UIImageView!
     @IBOutlet weak var mView: UIView!
-    
+    @IBOutlet weak var professional: UILabel!
     override class func awakeFromNib() {
         
     }

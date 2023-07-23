@@ -86,12 +86,16 @@ final class ProductsFetcherSK1: NSObject {
 
     func products(withIdentifiers identifiers: Set<String>,
                   completion: @escaping (Result<Set<SK1StoreProduct>, PurchasesError>) -> Void) {
-        self.sk1Products(withIdentifiers: identifiers) { skProducts in
-            let result = skProducts
-                .map { Set($0.map(SK1StoreProduct.init)) }
-
-            completion(result)
-        }
+        TimingUtil.measureAndLogIfTooSlow(
+            threshold: .productRequest,
+            message: Strings.storeKit.sk1_product_request_too_slow,
+            work: { completion in
+                self.sk1Products(withIdentifiers: identifiers) { skProducts in
+                    completion(skProducts.map { Set($0.map(SK1StoreProduct.init)) })
+                }
+            },
+            result: completion
+        )
     }
 
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
@@ -153,7 +157,7 @@ extension ProductsFetcherSK1: SKProductsRequestDelegate {
         }
 
         self.queue.async { [self] in
-            Logger.appleError(Strings.storeKit.store_products_request_failed(error: error))
+            Logger.appleError(Strings.storeKit.store_products_request_failed(error as NSError))
 
             guard let productRequest = self.productsByRequests[request] else {
                 Logger.error(Strings.purchase.requested_products_not_found(request: request))

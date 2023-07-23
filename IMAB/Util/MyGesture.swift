@@ -15,6 +15,7 @@ class MyGesture: UITapGestureRecognizer {
     var longitude : Double?
     var mView : UIView?
     var url : String?
-   
+    var socialType : SocialMedia?
+    var userModel : UserModel?
     
 }

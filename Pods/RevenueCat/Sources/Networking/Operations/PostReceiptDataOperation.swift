@@ -13,7 +13,7 @@
 
 import Foundation
 
-class PostReceiptDataOperation: CacheableNetworkOperation {
+final class PostReceiptDataOperation: CacheableNetworkOperation {
 
     struct PostData {
 
@@ -25,6 +25,7 @@ class PostReceiptDataOperation: CacheableNetworkOperation {
         let observerMode: Bool
         let initiationSource: ProductRequestData.InitiationSource
         let subscriberAttributesByKey: SubscriberAttribute.Dictionary?
+        let aadAttributionToken: String?
 
     }
 
@@ -33,28 +34,75 @@ class PostReceiptDataOperation: CacheableNetworkOperation {
     private let customerInfoResponseHandler: CustomerInfoResponseHandler
     private let customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>
 
-    init(configuration: UserSpecificConfiguration,
-         postData: PostData,
-         customerInfoResponseHandler: CustomerInfoResponseHandler = CustomerInfoResponseHandler(),
-         customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>) {
+    static func createFactory(
+        configuration: UserSpecificConfiguration,
+        postData: PostData,
+        customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>,
+        offlineCustomerInfoCreator: OfflineCustomerInfoCreator?
+    ) -> CacheableNetworkOperationFactory<PostReceiptDataOperation> {
+        return Self.createFactory(
+            configuration: configuration,
+            postData: postData,
+            customerInfoResponseHandler: .init(
+                offlineCreator: offlineCustomerInfoCreator,
+                userID: configuration.appUserID
+            ),
+            customerInfoCallbackCache: customerInfoCallbackCache
+        )
+    }
+
+    static func createFactory(
+        configuration: UserSpecificConfiguration,
+        postData: PostData,
+        customerInfoResponseHandler: CustomerInfoResponseHandler,
+        customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>
+    ) -> CacheableNetworkOperationFactory<PostReceiptDataOperation> {
+        /// Cache key comprises of the following:
+        /// - `appUserID`
+        /// - `isRestore`
+        /// - Receipt (`hashString` instead of `fetchToken` to avoid big receipts leading to a huge cache key)
+        /// - `ProductRequestData.cacheKey`
+        /// - `presentedOfferingIdentifier`
+        /// - `observerMode`
+        /// - `subscriberAttributesByKey`
+        let cacheKey =
+        """
+        \(configuration.appUserID)-\(postData.isRestore)-\(postData.receiptData.hashString)
+        -\(postData.productData?.cacheKey ?? "")
+        -\(postData.presentedOfferingIdentifier ?? "")-\(postData.observerMode)
+        -\(postData.subscriberAttributesByKey?.debugDescription ?? "")
+        """
+
+        return .init({ cacheKey in
+                    .init(
+                        configuration: configuration,
+                        postData: postData,
+                        customerInfoResponseHandler: customerInfoResponseHandler,
+                        customerInfoCallbackCache: customerInfoCallbackCache,
+                        cacheKey: cacheKey
+                    )
+            },
+            individualizedCacheKeyPart: cacheKey
+        )
+    }
+
+    private init(
+        configuration: UserSpecificConfiguration,
+        postData: PostData,
+        customerInfoResponseHandler: CustomerInfoResponseHandler,
+        customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>,
+        cacheKey: String
+    ) {
         self.customerInfoResponseHandler = customerInfoResponseHandler
         self.customerInfoCallbackCache = customerInfoCallbackCache
         self.postData = postData
         self.configuration = configuration
 
-        let cacheKey =
-        """
-        \(configuration.appUserID)-\(postData.isRestore)-\(postData.receiptData.asFetchToken)
-        -\(postData.productData?.cacheKey ?? "")
-        -\(postData.presentedOfferingIdentifier ?? "")-\(postData.observerMode)
-        -\(postData.subscriberAttributesByKey?.debugDescription ?? "")"
-        """
-
-        super.init(configuration: configuration, individualizedCacheKeyPart: cacheKey)
+        super.init(configuration: configuration, cacheKey: cacheKey)
     }
 
     override func begin(completion: @escaping () -> Void) {
-        if Logger.logLevel == .debug {
+        if Logger.logLevel <= .debug {
             self.printReceiptData()
         }
 
@@ -64,14 +112,40 @@ class PostReceiptDataOperation: CacheableNetworkOperation {
     private func post(completion: @escaping () -> Void) {
         let request = HTTPRequest(method: .post(self.postData), path: .postReceiptData)
 
-        httpClient.perform(request) { (response: HTTPResponse<CustomerInfoResponseHandler.Response>.Result) in
-            self.customerInfoCallbackCache.performOnAllItemsAndRemoveFromCache(withCacheable: self) { callbackObject in
-                self.customerInfoResponseHandler.handle(customerInfoResponse: response,
-                                                        completion: callbackObject.completion)
+        self.httpClient.perform(request) { (response: HTTPResponse<CustomerInfoResponseHandler.Response>.Result) in
+            self.customerInfoResponseHandler.handle(customerInfoResponse: response) { result in
+                self.customerInfoCallbackCache.performOnAllItemsAndRemoveFromCache(
+                    withCacheable: self
+                ) { callbackObject in
+                    callbackObject.completion(result)
+                }
             }
 
             completion()
         }
+    }
+
+}
+
+extension PostReceiptDataOperation.PostData {
+
+    init(
+        transactionData data: PurchasedTransactionData,
+        productData: ProductRequestData?,
+        receiptData: Data,
+        observerMode: Bool
+    ) {
+        self.init(
+            appUserID: data.appUserID,
+            receiptData: receiptData,
+            isRestore: data.source.isRestore,
+            productData: productData,
+            presentedOfferingIdentifier: data.presentedOfferingID,
+            observerMode: observerMode,
+            initiationSource: data.source.initiationSource,
+            subscriberAttributesByKey: data.unsyncedAttributes,
+            aadAttributionToken: data.aadAttributionToken
+        )
     }
 
 }
@@ -82,9 +156,17 @@ private extension PostReceiptDataOperation {
 
     func printReceiptData() {
         do {
-            self.log(Strings.receipt.posting_receipt(
-                try ReceiptParser.default.parse(from: self.postData.receiptData)
-            ))
+            let receipt = try PurchasesReceiptParser.default.parse(from: self.postData.receiptData)
+            self.log(Strings.receipt.posting_receipt(receipt))
+
+            for purchase in receipt.inAppPurchases where purchase.purchaseDateEqualsExpiration {
+                Logger.appleError(Strings.receipt.receipt_subscription_purchase_equals_expiration(
+                    productIdentifier: purchase.productId,
+                    purchase: purchase.purchaseDate,
+                    expiration: purchase.expiresDate
+                ))
+            }
+
         } catch {
             Logger.appleError(Strings.receipt.parse_receipt_locally_error(error: error))
         }
@@ -104,6 +186,7 @@ extension PostReceiptDataOperation.PostData: Encodable {
         case observerMode
         case initiationSource
         case attributes
+        case aadAttributionToken
         case presentedOfferingIdentifier
 
     }
@@ -130,6 +213,8 @@ extension PostReceiptDataOperation.PostData: Encodable {
                 .map(AnyEncodable.init),
             forKey: .attributes
         )
+
+        try container.encodeIfPresent(self.aadAttributionToken, forKey: .aadAttributionToken)
     }
 
 }

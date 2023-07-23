@@ -29,6 +29,8 @@
 	<string>30ea226fced097bdf5ded53be5446c7c</string>
 	<key>FacebookDisplayName</key>
 	<string>IMAB</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

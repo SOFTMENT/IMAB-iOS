@@ -31,7 +31,7 @@ protocol PaymentQueueWrapperDelegate: AnyObject, Sendable {
 @objc
 protocol PaymentQueueWrapperType: AnyObject {
 
-    func finishTransaction(_ transaction: SKPaymentTransaction)
+    func finishTransaction(_ transaction: SKPaymentTransaction, completion: @escaping () -> Void)
 
     #if os(iOS) || targetEnvironment(macCatalyst)
     @available(iOS 13.4, macCatalyst 13.4, *)
@@ -44,6 +44,8 @@ protocol PaymentQueueWrapperType: AnyObject {
     @available(watchOS, unavailable)
     @available(macCatalyst, unavailable)
     func presentCodeRedemptionSheet()
+
+    var currentStorefront: Storefront? { get }
 
 }
 
@@ -77,8 +79,14 @@ class PaymentQueueWrapper: NSObject, PaymentQueueWrapperType {
         super.init()
     }
 
-    func finishTransaction(_ transaction: SKPaymentTransaction) {
+    func finishTransaction(_ transaction: SKPaymentTransaction, completion: @escaping () -> Void) {
+        // See `StoreKit1Wrapper.finishTransaction(:completion:)`.
+        // Technically this is a race condition, because `SKPaymentQueue.finishTransaction` is asynchronous
+        // In practice this method won't be used, because this class is only used in SK2 mode,
+        // and those transactions are finished through `SK2StoreTransaction`.
+
         self.paymentQueue.finishTransaction(transaction)
+        completion()
     }
 
     #if os(iOS) || targetEnvironment(macCatalyst)
@@ -94,6 +102,16 @@ class PaymentQueueWrapper: NSObject, PaymentQueueWrapperType {
         self.paymentQueue.presentCodeRedemptionSheetIfAvailable()
     }
     #endif
+
+    var currentStorefront: Storefront? {
+        guard #available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *) else {
+            return nil
+        }
+
+        return self.paymentQueue.storefront
+            .map(SK1Storefront.init)
+            .map(Storefront.from(storefront:))
+    }
 
 }
 
@@ -111,7 +129,7 @@ extension PaymentQueueWrapper: SKPaymentQueueDelegate {
 extension PaymentQueueWrapper: SKPaymentTransactionObserver {
 
     func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
-        // Ignored. Either `StoreKit1Wrapper` will handle this, or `StoreKit2TransactionListener` if `SK2` is enabled.
+        // Ignored. Either `StoreKit1Wrapper` or `StoreKit2TransactionListener` will handle this.
     }
 
     #if !os(watchOS)
@@ -141,6 +159,8 @@ extension EitherPaymentQueueWrapper {
         case let .right(paymentQueueWrapper): return paymentQueueWrapper
         }
     }
+
+    var currentStorefront: StorefrontType? { self.paymentQueueWrapperType.currentStorefront }
 
     var sk1Wrapper: StoreKit1Wrapper? { return self.left }
     var sk2Wrapper: PaymentQueueWrapper? { return self.right }

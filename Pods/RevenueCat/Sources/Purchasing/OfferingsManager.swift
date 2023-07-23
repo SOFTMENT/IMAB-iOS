@@ -42,9 +42,10 @@ class OfferingsManager {
         fetchPolicy: FetchPolicy = .default,
         completion: (@MainActor @Sendable (Result<Offerings, Error>) -> Void)?
     ) {
-        guard let cachedOfferings = self.deviceCache.cachedOfferings else {
+        guard let memoryCachedOfferings = self.deviceCache.cachedOfferings else {
             Logger.debug(Strings.offering.no_cached_offerings_fetching_from_network)
-            systemInfo.isApplicationBackgrounded { isAppBackgrounded in
+
+            self.systemInfo.isApplicationBackgrounded { isAppBackgrounded in
                 self.updateOfferingsCache(appUserID: appUserID,
                                           isAppBackgrounded: isAppBackgrounded,
                                           fetchPolicy: fetchPolicy,
@@ -53,21 +54,15 @@ class OfferingsManager {
             return
         }
 
-        Logger.debug(Strings.offering.vending_offerings_cache)
-        dispatchCompletionOnMainThreadIfPossible(completion, result: .success(cachedOfferings))
+        Logger.debug(Strings.offering.vending_offerings_cache_from_memory)
+        self.dispatchCompletionOnMainThreadIfPossible(completion, value: .success(memoryCachedOfferings))
 
-        systemInfo.isApplicationBackgrounded { isAppBackgrounded in
+        self.systemInfo.isApplicationBackgrounded { isAppBackgrounded in
             if self.deviceCache.isOfferingsCacheStale(isAppBackgrounded: isAppBackgrounded) {
-                Logger.debug(isAppBackgrounded
-                             ? Strings.offering.offerings_stale_updating_in_background
-                             : Strings.offering.offerings_stale_updating_in_foreground)
-
                 self.updateOfferingsCache(appUserID: appUserID,
                                           isAppBackgrounded: isAppBackgrounded,
                                           fetchPolicy: fetchPolicy,
                                           completion: nil)
-
-                Logger.rcSuccess(Strings.offering.offerings_stale_updated_from_network)
             }
         }
     }
@@ -78,12 +73,31 @@ class OfferingsManager {
         fetchPolicy: FetchPolicy = .default,
         completion: (@MainActor @Sendable (Result<Offerings, Error>) -> Void)?
     ) {
+        Logger.debug(isAppBackgrounded
+                     ? Strings.offering.offerings_stale_updating_in_background
+                     : Strings.offering.offerings_stale_updating_in_foreground)
+
         self.backend.offerings.getOfferings(appUserID: appUserID, withRandomDelay: isAppBackgrounded) { result in
             switch result {
             case let .success(response):
                 self.handleOfferingsBackendResult(with: response,
+                                                  appUserID: appUserID,
                                                   fetchPolicy: fetchPolicy,
                                                   completion: completion)
+
+            case let .failure(.networkError(networkError)) where networkError.isServerDown:
+                Logger.warn(Strings.offering.fetching_offerings_failed_server_down)
+
+                // If unable to fetch offerings when server is down, attempt to load them from disk cache.
+                self.fetchCachedOfferingsFromDisk(appUserID: appUserID,
+                                                  fetchPolicy: fetchPolicy) { offerings in
+                    if let offerings = offerings {
+                        self.dispatchCompletionOnMainThreadIfPossible(completion, value: .success(offerings))
+                    } else {
+                        self.handleOfferingsUpdateError(.backendError(.networkError(networkError)),
+                                                        completion: completion)
+                    }
+                }
 
             case let .failure(error):
                 self.handleOfferingsUpdateError(.backendError(error), completion: completion)
@@ -102,7 +116,7 @@ class OfferingsManager {
 
     func invalidateAndReFetchCachedOfferingsIfAppropiate(appUserID: String) {
         let cachedOfferings = self.deviceCache.cachedOfferings
-        self.deviceCache.clearCachedOfferings()
+        self.deviceCache.clearOfferingsCache(appUserID: appUserID)
 
         if cachedOfferings != nil {
             self.offerings(appUserID: appUserID, fetchPolicy: .ignoreNotFoundProducts) { @Sendable _ in }
@@ -113,17 +127,48 @@ class OfferingsManager {
 
 private extension OfferingsManager {
 
-    func handleOfferingsBackendResult(
-        with response: OfferingsResponse,
+    func fetchCachedOfferingsFromDisk(
+        appUserID: String,
         fetchPolicy: FetchPolicy,
-        completion: (@MainActor @Sendable (Result<Offerings, Error>) -> Void)?
+        completion: (@escaping @Sendable (Offerings?) -> Void)
+    ) {
+        guard let data = self.deviceCache.cachedOfferingsResponseData(appUserID: appUserID),
+              let response: OfferingsResponse = try? JSONDecoder.default.decode(jsonData: data, logErrors: true) else {
+            completion(nil)
+            return
+        }
+
+        self.createOfferings(
+            from: response,
+            fetchPolicy: fetchPolicy,
+            completion: { [cache = self.deviceCache] result in
+                switch result {
+                case let .success(offerings):
+                    Logger.debug(Strings.offering.vending_offerings_cache_from_disk)
+
+                    // Cache in memory but as stale, so it can be re-updated when possible
+                    cache.cacheInMemory(offerings: offerings)
+                    cache.clearOfferingsCacheTimestamp()
+
+                    completion(offerings)
+
+                case .failure:
+                    completion(nil)
+                }
+            }
+        )
+    }
+
+    func createOfferings(
+        from response: OfferingsResponse,
+        fetchPolicy: FetchPolicy,
+        completion: @escaping (@Sendable (Result<Offerings, Error>) -> Void)
     ) {
         let productIdentifiers = response.productIdentifiers
 
         guard !productIdentifiers.isEmpty else {
             let errorMessage = Strings.offering.configuration_error_no_products_for_offering.description
-            self.handleOfferingsUpdateError(.configurationError(errorMessage, underlyingError: nil),
-                                            completion: completion)
+            completion(.failure(.configurationError(errorMessage, underlyingError: nil)))
             return
         }
 
@@ -131,11 +176,7 @@ private extension OfferingsManager {
             let products = result.value ?? []
 
             guard products.isEmpty == false else {
-                self.handleOfferingsUpdateError(
-                    .configurationError(Strings.offering.configuration_error_products_not_found.description,
-                                        underlyingError: result.error as NSError?),
-                    completion: completion
-                )
+                completion(.failure(Self.createErrorForEmptyResult(result.error)))
                 return
             }
 
@@ -151,20 +192,46 @@ private extension OfferingsManager {
                     )
 
                 case .failIfProductsAreMissing:
-                    self.handleOfferingsUpdateError(
-                        .missingProducts(identifiers: missingProductIDs),
-                        completion: completion
-                    )
+                    completion(.failure(.missingProducts(identifiers: missingProductIDs)))
                     return
                 }
             }
 
             if let createdOfferings = self.offeringsFactory.createOfferings(from: productsByID, data: response) {
-                self.deviceCache.cache(offerings: createdOfferings)
-                self.dispatchCompletionOnMainThreadIfPossible(completion, result: .success(createdOfferings))
+                completion(.success(createdOfferings))
             } else {
-                self.handleOfferingsUpdateError(.noOfferingsFound(), completion: completion)
+                completion(.failure(.noOfferingsFound()))
             }
+        }
+    }
+
+    func handleOfferingsBackendResult(
+        with response: OfferingsResponse,
+        appUserID: String,
+        fetchPolicy: FetchPolicy,
+        completion: (@MainActor @Sendable (Result<Offerings, Error>) -> Void)?
+    ) {
+        self.createOfferings(from: response, fetchPolicy: fetchPolicy) { result in
+            switch result {
+            case let .success(offerings):
+                Logger.rcSuccess(Strings.offering.offerings_stale_updated_from_network)
+
+                self.deviceCache.cache(offerings: offerings, appUserID: appUserID)
+                self.dispatchCompletionOnMainThreadIfPossible(completion, value: .success(offerings))
+
+            case let .failure(error):
+                self.handleOfferingsUpdateError(error, completion: completion)
+            }
+        }
+    }
+
+    private static func createErrorForEmptyResult(_ error: PurchasesError?) -> OfferingsManager.Error {
+        if let purchasesError = error,
+           case ErrorCode.productRequestTimedOut = purchasesError.error {
+            return .timeout(purchasesError)
+        } else {
+            return .configurationError(Strings.offering.configuration_error_products_not_found.description,
+                                       underlyingError: error?.asPublicError)
         }
     }
 
@@ -174,17 +241,16 @@ private extension OfferingsManager {
     ) {
         Logger.appleError(Strings.offering.fetching_offerings_error(error: error,
                                                                     underlyingError: error.underlyingError))
-        self.deviceCache.clearOfferingsCacheTimestamp()
-        self.dispatchCompletionOnMainThreadIfPossible(completion, result: .failure(error))
+        self.dispatchCompletionOnMainThreadIfPossible(completion, value: .failure(error))
     }
 
-    func dispatchCompletionOnMainThreadIfPossible(
-        _ completion: (@MainActor @Sendable (Result<Offerings, Error>) -> Void)?,
-        result: Result<Offerings, Error>
+    func dispatchCompletionOnMainThreadIfPossible<T>(
+        _ completion: (@MainActor @Sendable (T) -> Void)?,
+        value: T
     ) {
         if let completion = completion {
             self.operationDispatcher.dispatchOnMainActor {
-                completion(result)
+                completion(value)
             }
         }
     }
@@ -213,10 +279,11 @@ extension OfferingsManager: @unchecked Sendable {}
 
 extension OfferingsManager {
 
-    enum Error: Swift.Error, Equatable {
+    enum Error: Swift.Error {
 
         case backendError(BackendError)
-        case configurationError(String, NSError?, ErrorSource)
+        case configurationError(String, PublicError?, ErrorSource)
+        case timeout(PurchasesError)
         case noOfferingsFound(ErrorSource)
         case missingProducts(identifiers: Set<String>, ErrorSource)
 
@@ -230,6 +297,9 @@ extension OfferingsManager.Error: PurchasesErrorConvertible {
         switch self {
         case let .backendError(backendError):
             return backendError.asPurchasesError
+
+        case let .timeout(underlyingError):
+            return underlyingError
 
         case let .configurationError(errorMessage, underlyingError, source):
             return ErrorUtils.configurationError(message: errorMessage,
@@ -290,10 +360,21 @@ extension OfferingsManager.Error: CustomNSError {
         ]
     }
 
+    var errorDescription: String? {
+        switch self {
+        case .backendError: return nil
+        case let .timeout(underlyingError): return underlyingError.error.localizedDescription
+        case let .configurationError(message, _, _): return message
+        case .noOfferingsFound: return nil
+        case .missingProducts: return nil
+        }
+    }
+
     fileprivate var underlyingError: Error? {
         switch self {
         case let .backendError(.networkError(error)): return error
         case let .backendError(error): return error
+        case let .timeout(underlyingError): return underlyingError
         case let .configurationError(_, error, _): return error
         case .noOfferingsFound: return nil
         case .missingProducts: return nil

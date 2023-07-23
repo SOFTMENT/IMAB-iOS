@@ -16,15 +16,15 @@ import Foundation
 class OfferingsAPI {
 
     typealias IntroEligibilityResponseHandler = ([String: IntroEligibility], BackendError?) -> Void
-    typealias OfferSigningResponseHandler = (Result<PostOfferForSigningOperation.SigningData, BackendError>) -> Void
-    typealias OfferingsResponseHandler = (Result<OfferingsResponse, BackendError>) -> Void
+    typealias OfferSigningResponseHandler = Backend.ResponseHandler<PostOfferForSigningOperation.SigningData>
+    typealias OfferingsResponseHandler = Backend.ResponseHandler<OfferingsResponse>
 
     private let offeringsCallbacksCache: CallbackCache<OfferingsCallback>
     private let backendConfig: BackendConfiguration
 
     init(backendConfig: BackendConfiguration) {
         self.backendConfig = backendConfig
-        self.offeringsCallbacksCache = CallbackCache<OfferingsCallback>()
+        self.offeringsCallbacksCache = .init()
     }
 
     func getOfferings(appUserID: String,
@@ -32,15 +32,19 @@ class OfferingsAPI {
                       completion: @escaping OfferingsResponseHandler) {
         let config = NetworkOperation.UserSpecificConfiguration(httpClient: self.backendConfig.httpClient,
                                                                 appUserID: appUserID)
-        let getOfferingsOperation = GetOfferingsOperation(configuration: config,
-                                                          offeringsCallbackCache: self.offeringsCallbacksCache)
+        let factory = GetOfferingsOperation.createFactory(
+            configuration: config,
+            offeringsCallbackCache: self.offeringsCallbacksCache
+        )
 
-        let offeringsCallback = OfferingsCallback(cacheKey: getOfferingsOperation.cacheKey, completion: completion)
+        let offeringsCallback = OfferingsCallback(cacheKey: factory.cacheKey, completion: completion)
         let cacheStatus = self.offeringsCallbacksCache.add(offeringsCallback)
 
-        self.backendConfig.addCacheableOperation(getOfferingsOperation,
-                                                 withRandomDelay: randomDelay,
-                                                 cacheStatus: cacheStatus)
+        self.backendConfig.addCacheableOperation(
+            with: factory,
+            withRandomDelay: randomDelay,
+            cacheStatus: cacheStatus
+        )
     }
 
     func getIntroEligibility(appUserID: String,

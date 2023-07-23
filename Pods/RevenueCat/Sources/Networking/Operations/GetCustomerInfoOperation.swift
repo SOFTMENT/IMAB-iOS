@@ -13,21 +13,52 @@
 
 import Foundation
 
-class GetCustomerInfoOperation: CacheableNetworkOperation {
+final class GetCustomerInfoOperation: CacheableNetworkOperation {
 
     private let customerInfoResponseHandler: CustomerInfoResponseHandler
     private let customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>
     private let configuration: UserSpecificConfiguration
 
-    init(configuration: UserSpecificConfiguration,
-         customerInfoResponseHandler: CustomerInfoResponseHandler = CustomerInfoResponseHandler(),
-         customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>) {
+    static func createFactory(
+        configuration: UserSpecificConfiguration,
+        customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>,
+        offlineCreator: OfflineCustomerInfoCreator?
+    ) -> CacheableNetworkOperationFactory<GetCustomerInfoOperation> {
+        return Self.createFactory(
+            configuration: configuration,
+            customerInfoResponseHandler: .init(
+                offlineCreator: offlineCreator,
+                userID: configuration.appUserID
+            ),
+            customerInfoCallbackCache: customerInfoCallbackCache)
+    }
+
+    static func createFactory(
+        configuration: UserSpecificConfiguration,
+        customerInfoResponseHandler: CustomerInfoResponseHandler,
+        customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>
+    ) -> CacheableNetworkOperationFactory<GetCustomerInfoOperation> {
+        return .init({
+            .init(configuration: configuration,
+                  customerInfoResponseHandler: customerInfoResponseHandler,
+                  customerInfoCallbackCache: customerInfoCallbackCache,
+                  cacheKey: $0) },
+            individualizedCacheKeyPart: configuration.appUserID
+        )
+    }
+
+    private init(
+        configuration: UserSpecificConfiguration,
+        customerInfoResponseHandler: CustomerInfoResponseHandler,
+        customerInfoCallbackCache: CallbackCache<CustomerInfoCallback>,
+        cacheKey: String
+    ) {
         self.configuration = configuration
         self.customerInfoResponseHandler = customerInfoResponseHandler
         self.customerInfoCallbackCache = customerInfoCallbackCache
 
         super.init(configuration: configuration,
-                   individualizedCacheKeyPart: configuration.appUserID)
+                   cacheKey: cacheKey)
     }
 
     override func begin(completion: @escaping () -> Void) {
@@ -51,10 +82,11 @@ private extension GetCustomerInfoOperation {
         let request = HTTPRequest(method: .get,
                                   path: .getCustomerInfo(appUserID: appUserID))
 
-        httpClient.perform(request) { (response: HTTPResponse<CustomerInfoResponseHandler.Response>.Result) in
-            self.customerInfoCallbackCache.performOnAllItemsAndRemoveFromCache(withCacheable: self) { callback in
-                self.customerInfoResponseHandler.handle(customerInfoResponse: response,
-                                                        completion: callback.completion)
+        self.httpClient.perform(request) { (response: HTTPResponse<CustomerInfoResponseHandler.Response>.Result) in
+            self.customerInfoResponseHandler.handle(customerInfoResponse: response) { result in
+                self.customerInfoCallbackCache.performOnAllItemsAndRemoveFromCache(withCacheable: self) { callback in
+                    callback.completion(result)
+                }
             }
 
             completion()

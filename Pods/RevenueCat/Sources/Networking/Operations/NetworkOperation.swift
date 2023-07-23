@@ -13,21 +13,41 @@
 
 import Foundation
 
-class CacheableNetworkOperation: NetworkOperation, CacheKeyProviding {
+/// A type that can construct a `CacheableNetworkOperation` and pre-compute a cache key.
+final class CacheableNetworkOperationFactory<T: CacheableNetworkOperation> {
 
-    var cacheKey: String { "\(type(of: self)) \(individualizedCacheKeyPart)" }
-
-    let individualizedCacheKeyPart: String
+    let creator: (_ cacheKey: String) -> T
+    let cacheKey: String
+    var operationType: T.Type { T.self }
 
     /**
      - Parameter individualizedCacheKeyPart: The part of the cacheKey that makes it unique from other operations of the
      same type. Example: If you posted receipts two times in a row you'd have 2 operations. The cache key would be
      PostOperation + individualizedCacheKeyPart where individualizedCacheKeyPart is whatever you determine to be unique.
      */
-    init(configuration: NetworkConfiguration, individualizedCacheKeyPart: String) {
-        self.individualizedCacheKeyPart = individualizedCacheKeyPart
+    init(_ creator: @escaping (_ cacheKey: String) -> T, individualizedCacheKeyPart: String) {
+        self.creator = creator
+        self.cacheKey = T.cacheKey(with: individualizedCacheKeyPart)
+    }
+
+    func create() -> T {
+        return self.creator(self.cacheKey)
+    }
+
+}
+
+class CacheableNetworkOperation: NetworkOperation, CacheKeyProviding {
+
+    let cacheKey: String
+
+    init(configuration: NetworkConfiguration, cacheKey: String) {
+        self.cacheKey = cacheKey
 
         super.init(configuration: configuration)
+    }
+
+    fileprivate static func cacheKey(with individualizedCacheKeyPart: String) -> String {
+        return "\(Self.self) \(individualizedCacheKeyPart)"
     }
 
 }
@@ -36,11 +56,14 @@ class NetworkOperation: Operation {
 
     let httpClient: HTTPClient
 
+    private let _didStart: Atomic<Bool> = false
+    private var didStart: Bool { return self._didStart.value }
+
     // Note: implementing asynchronousy `Operations` needs KVO.
     // We're not using Swift's `KeyPath` verison (`willChangeValue(for:)`)
     // due to it crashing on iOS 12. See https://github.com/RevenueCat/purchases-ios/pull/2008.
 
-    private var _isExecuting: Atomic<Bool> = false
+    private let _isExecuting: Atomic<Bool> = false
     private(set) override final var isExecuting: Bool {
         get {
             return self._isExecuting.value
@@ -52,7 +75,7 @@ class NetworkOperation: Operation {
         }
     }
 
-    private var _isFinished: Atomic<Bool> = false
+    private let _isFinished: Atomic<Bool> = false
     private(set) override final var isFinished: Bool {
         get {
             return self._isFinished.value
@@ -64,7 +87,7 @@ class NetworkOperation: Operation {
         }
     }
 
-    private var _isCancelled: Atomic<Bool> = false
+    private let _isCancelled: Atomic<Bool> = false
     private(set) override final var isCancelled: Bool {
         get {
             return self._isCancelled.value
@@ -83,7 +106,21 @@ class NetworkOperation: Operation {
         super.init()
     }
 
+    deinit {
+        RCTestAssert(
+            self.didStart,
+            "\(type(of: self)) was deallocated but it never started. Did it need to be created?"
+        )
+        RCTestAssert(
+            self.isFinished,
+            "\(type(of: self)) started but never finished. " +
+            "Did the operation not call `completion` in its `begin` implementation?"
+        )
+    }
+
     override final func main() {
+        self._didStart.value = true
+
         if self.isCancelled {
             self.isFinished = true
             return
@@ -131,7 +168,8 @@ class NetworkOperation: Operation {
     // MARK: -
 
     internal func log(_ message: CustomStringConvertible) {
-        Logger.debug("\(type(of: self)): \(message.description)")
+        Logger.debug(Strings.network.operation_state(type(of: self),
+                                                     state: message.description))
     }
 
     // MARK: -

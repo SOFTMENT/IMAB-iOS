@@ -12,13 +12,18 @@
 //  Created by Juanpe Catalán on 8/9/21.
 
 import Foundation
+import StoreKit
 
 // swiftlint:disable identifier_name
 enum StoreKitStrings {
 
-    case skrequest_failed(error: Error)
+    case sk_receipt_request_started
 
-    case store_products_request_failed(error: Error)
+    case sk_receipt_request_finished
+
+    case skrequest_failed(NSError)
+
+    case store_products_request_failed(NSError)
 
     case skproductsrequest_timed_out(after: Int)
 
@@ -36,24 +41,47 @@ enum StoreKitStrings {
 
     case sk1_no_known_product_type
 
+    case sk1_unknown_transaction_state(SKPaymentTransactionState)
+
     case unknown_sk2_product_discount_type(rawValue: String)
 
     case sk1_discount_missing_locale
 
     case no_cached_products_starting_store_products_request(identifiers: Set<String>)
 
+    case sk1_payment_queue_too_many_transactions(count: Int, isSandbox: Bool)
+
+    case sk1_finish_transaction_called_with_existing_completion(SKPaymentTransaction)
+
+    case sk1_product_request_too_slow
+
+    case sk2_product_request_too_slow
+
+    case sk2_observing_transaction_updates
+
+    #if DEBUG
+
+    case sk1_wrapper_notifying_delegate_of_existing_transactions(count: Int)
+
+    #endif
+
 }
 
-extension StoreKitStrings: CustomStringConvertible {
+extension StoreKitStrings: LogMessage {
 
     var description: String {
         switch self {
+        case .sk_receipt_request_started:
+            return "SKReceiptRefreshRequest started"
+
+        case .sk_receipt_request_finished:
+            return "SKReceiptRefreshRequest finished"
 
         case .skrequest_failed(let error):
-            return "SKRequest failed: \(error.localizedDescription)"
+            return "SKRequest failed: \(error.description)"
 
         case .store_products_request_failed(let error):
-            return "Store products request failed! Error: \(error.localizedDescription)"
+            return "Store products request failed! Error: \(error.description)"
 
         case .skproductsrequest_timed_out(let afterTimeInSeconds):
             return "SKProductsRequest took longer than \(afterTimeInSeconds) seconds, " +
@@ -65,7 +93,7 @@ extension StoreKitStrings: CustomStringConvertible {
             return "Store products request finished"
 
         case .store_product_request_received_response:
-            return "Store products request request received response"
+            return "Store products request received response"
 
         case let .skunknown_payment_mode(name):
             return "Unrecognized PaymentMode: \(name)"
@@ -83,6 +111,9 @@ extension StoreKitStrings: CustomStringConvertible {
             return "This StoreProduct represents an SK1 product, the type of product cannot be determined, " +
             "the value will be undefined. Use `StoreProduct.productCategory` instead."
 
+        case let .sk1_unknown_transaction_state(state):
+            return "Received unknown transaction state: \(state.rawValue)"
+
         case .unknown_sk2_product_discount_type(let rawValue):
             return "Failed to create StoreProductDiscount.DiscountType with unknown value: \(rawValue)"
 
@@ -92,7 +123,37 @@ extension StoreKitStrings: CustomStringConvertible {
 
         case .no_cached_products_starting_store_products_request(let identifiers):
             return "No existing products cached, starting store products request for: \(identifiers)"
+
+        case let .sk1_payment_queue_too_many_transactions(count, isSandbox):
+            let messageSuffix = isSandbox
+            ? "This high number is unexpected and is likely due to using an old sandbox account on a new device. " +
+            "If this is impacting performance, using a new sandbox account is recommended."
+            : "This is a very high number and might impact performance."
+
+            return "SKPaymentQueue sent \(count) updated transactions. " + messageSuffix
+
+        case let .sk1_finish_transaction_called_with_existing_completion(transaction):
+            return "StoreKit1Wrapper.finishTransaction was called for '\(transaction.productIdentifier ?? "")' " +
+            "but found an existing completion block."
+
+        case .sk1_product_request_too_slow:
+            return "StoreKit 1 product request took longer than expected"
+
+        case .sk2_product_request_too_slow:
+            return "StoreKit 2 product request took longer than expected"
+
+        case .sk2_observing_transaction_updates:
+            return "Observing StoreKit.Transaction.updates"
+
+        #if DEBUG
+        case let .sk1_wrapper_notifying_delegate_of_existing_transactions(count):
+            return "StoreKit1Wrapper: sending delegate \(count) existing transactions " +
+            "for Integration Tests."
+        #endif
+
         }
     }
+
+    var category: String { return "store_kit" }
 
 }

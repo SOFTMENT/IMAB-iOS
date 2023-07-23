@@ -13,13 +13,30 @@ import Foundation
  */
 @objc(RCDangerousSettings) public final class DangerousSettings: NSObject {
 
-    /// Dangerous settings not exposed outside of the SDK.
-    internal struct InternalSettings {
+    internal struct Internal: InternalDangerousSettingsType {
 
-        /// Whether `ReceiptFetcher` can retry fetching receipts.
         let enableReceiptFetchRetry: Bool
 
-        static let `default`: Self = .init(enableReceiptFetchRetry: false)
+        #if DEBUG
+        let forceServerErrors: Bool
+        let forceSignatureFailures: Bool
+
+        init(
+            enableReceiptFetchRetry: Bool = false,
+            forceServerErrors: Bool = false,
+            forceSignatureFailures: Bool = false
+        ) {
+            self.enableReceiptFetchRetry = enableReceiptFetchRetry
+            self.forceServerErrors = forceServerErrors
+            self.forceSignatureFailures = forceSignatureFailures
+        }
+        #else
+        init(enableReceiptFetchRetry: Bool = false) {
+            self.enableReceiptFetchRetry = enableReceiptFetchRetry
+        }
+        #endif
+
+        static let `default`: Self = .init()
     }
 
     /**
@@ -32,7 +49,21 @@ import Foundation
      */
     @objc public let autoSyncPurchases: Bool
 
-    internal let internalSettings: InternalSettings
+    /**
+     * A property meant for apps that do their own entitlements computation, separated from RevenueCat.
+     * It:
+     *   - disables automatic CustomerInfo cache updates
+     *   - disables ``Purchases/logOut()`` and ``Purchases/logOut(completion:)``
+     *   - disallows configuration of the SDK without an appUserID
+     *   - disables automatic firing of the PurchasesDelegate's CustomerInfo listener when setting the delegate.
+     * It will only be called when the SDK posts a receipt or after customerInfo on device changes.
+     *
+     * - Important: This is a dangerous setting and should only be used if you intend to do your own entitlement
+     * granting, separate from RevenueCat.
+     */
+    @objc public let customEntitlementComputation: Bool
+
+    internal let internalSettings: InternalDangerousSettingsType
 
     @objc public override convenience init() {
         self.init(autoSyncPurchases: true)
@@ -45,16 +76,46 @@ import Foundation
      * If this is disabled, RevenueCat won't observe the StoreKit queue, and it will not sync any purchase
      * automatically.
      */
-    @objc public convenience init(autoSyncPurchases: Bool) {
-        self.init(autoSyncPurchases: autoSyncPurchases, internalSettings: .default)
+    @objc public convenience init(autoSyncPurchases: Bool = true) {
+        self.init(autoSyncPurchases: autoSyncPurchases,
+                  customEntitlementComputation: false)
+
+    }
+
+    /// - Note: this is `internal` only so the only `public` way to enable `customEntitlementComputation`
+    /// is through ``Purchases/configureInCustomEntitlementsComputationMode(apiKey:appUserID:)``.
+    @objc internal convenience init(autoSyncPurchases: Bool = true, customEntitlementComputation: Bool) {
+        self.init(autoSyncPurchases: autoSyncPurchases,
+                  customEntitlementComputation: customEntitlementComputation,
+                  internalSettings: Internal.default)
+
     }
 
     /// Designated initializer
-    internal init(autoSyncPurchases: Bool, internalSettings: InternalSettings) {
+    internal init(autoSyncPurchases: Bool,
+                  customEntitlementComputation: Bool = false,
+                  internalSettings: InternalDangerousSettingsType) {
         self.autoSyncPurchases = autoSyncPurchases
         self.internalSettings = internalSettings
+        self.customEntitlementComputation = customEntitlementComputation
     }
 
 }
 
 extension DangerousSettings: Sendable {}
+
+/// Dangerous settings not exposed outside of the SDK.
+internal protocol InternalDangerousSettingsType: Sendable {
+
+    /// Whether `ReceiptFetcher` can retry fetching receipts.
+    var enableReceiptFetchRetry: Bool { get }
+
+    #if DEBUG
+    /// Whether `HTTPClient` will fake server errors
+    var forceServerErrors: Bool { get }
+
+    /// Whether `HTTPClient` will fake invalid signatures.
+    var forceSignatureFailures: Bool { get }
+    #endif
+
+}

@@ -6,14 +6,13 @@
 //
 
 import UIKit
-import Firebase
+
 
 class AddSocialMediaViewController : UIViewController {
     
-    @IBOutlet weak var doneBtn: UIImageView!
+    @IBOutlet weak var backView: UIView!
     @IBOutlet weak var nameTF: UITextField!
     @IBOutlet weak var profileLinkTF: UITextField!
-    
     @IBOutlet weak var saveBtn: UIButton!
     override func viewDidLoad() {
       
@@ -23,8 +22,12 @@ class AddSocialMediaViewController : UIViewController {
         view.isUserInteractionEnabled = true
         view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(hideKeyboard)))
         
-        doneBtn.isUserInteractionEnabled = true
-        doneBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(doneBtnClicked)))
+        
+        
+        backView.layer.cornerRadius = 8
+        backView.dropShadow()
+        backView.isUserInteractionEnabled = true
+        backView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(doneBtnClicked)))
         
         nameTF.isUserInteractionEnabled = true
         nameTF.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(mediaNameClicked)))
@@ -32,37 +35,66 @@ class AddSocialMediaViewController : UIViewController {
         saveBtn.layer.cornerRadius = 8
     }
     
+   
     @objc func mediaNameClicked(){
         let alert = UIAlertController(title: "Select Media", message: nil, preferredStyle: .actionSheet)
-      
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Facebook , style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Facebook
+     
+        alert.addAction(UIAlertAction(title: SocialMedia.Discord.rawValue , style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Discord.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Instagram, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Instagram
+        alert.addAction(UIAlertAction(title: SocialMedia.Etsy.rawValue , style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Etsy.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.Facebook.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Facebook.rawValue
         }))
      
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Linkedin, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Linkedin
+        alert.addAction(UIAlertAction(title: SocialMedia.Instagram.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Instagram.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Pintrest, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Pintrest
+        alert.addAction(UIAlertAction(title: SocialMedia.LinkedIn.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.LinkedIn.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Reddit, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Reddit
+        alert.addAction(UIAlertAction(title: SocialMedia.Mastodon.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Mastodon.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Snapchat, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Snapchat
+        alert.addAction(UIAlertAction(title: SocialMedia.Pinterest.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Pinterest.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.TikTok, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.TikTok
+        alert.addAction(UIAlertAction(title: SocialMedia.Reddit.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Reddit.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.Twitter, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.Twitter
+        alert.addAction(UIAlertAction(title: SocialMedia.Rumble.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Rumble.rawValue
         }))
-        alert.addAction(UIAlertAction(title: Constants.SocialMedia.YouTube, style: .default, handler: { action in
-            self.nameTF.text = Constants.SocialMedia.YouTube
+        alert.addAction(UIAlertAction(title: SocialMedia.Substack.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Substack.rawValue
         }))
+        alert.addAction(UIAlertAction(title: SocialMedia.Telegram.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Telegram.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.TikTok.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.TikTok.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.TruthSocial.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.TruthSocial.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.Tumblr.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Tumblr.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.Twitch.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Twitch.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.Twitter.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Twitter.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.YouTube.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.YouTube.rawValue
+        }))
+        alert.addAction(UIAlertAction(title: SocialMedia.Whatsapp.rawValue, style: .default, handler: { action in
+            self.nameTF.text = SocialMedia.Whatsapp.rawValue
+        }))
+      
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         present(alert, animated: true)
         
@@ -84,20 +116,22 @@ class AddSocialMediaViewController : UIViewController {
             self.showSnack(messages: "Select Media")
         }
         else if sUrl == "" {
-            self.showSnack(messages: "Enter Media Name")
+            self.showSnack(messages: "Enter URL")
         }
         else {
             ProgressHUDShow(text: "")
             let socialMediaModel = SocialMediaModel()
             socialMediaModel.link = sUrl
             socialMediaModel.name = sName
-            try? Firestore.firestore().collection("Users").document(UserModel.data!.uid ?? "123").collection("SocialMedia").document(sName ?? "123").setData(from: socialMediaModel,merge : true, completion: { error in
+            let id = FirebaseStoreManager.db.collection("Users").document(UserModel.data!.uid ?? "123").collection("SocialMedia").document().documentID
+            socialMediaModel.id = id
+            try? FirebaseStoreManager.db.collection("Users").document(UserModel.data!.uid ?? "123").collection("SocialMedia").document(id).setData(from: socialMediaModel,merge : true, completion: { error in
                 self.ProgressHUDHide()
                 if let error = error {
                     self.showSnack(messages: error.localizedDescription)
                 }
                 else {
-                    self.showSnack(messages: "Profile Added")
+                    self.showSnack(messages: "Added")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
                         self.dismiss(animated: true)
                     }

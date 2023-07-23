@@ -23,30 +23,34 @@ protocol SandboxEnvironmentDetector: Sendable {
 /// ``SandboxEnvironmentDetector`` that uses a `Bundle` to detect the environment
 final class BundleSandboxEnvironmentDetector: SandboxEnvironmentDetector {
 
-    private let bundle: Bundle
+    private let bundle: Atomic<Bundle>
+    private let isRunningInSimulator: Bool
 
-    init(bundle: Bundle = .main) {
-        self.bundle = bundle
+    init(bundle: Bundle = .main, isRunningInSimulator: Bool = SystemInfo.isRunningInSimulator) {
+        self.bundle = .init(bundle)
+        self.isRunningInSimulator = isRunningInSimulator
     }
 
     var isSandbox: Bool {
-        guard let url = self.bundle.appStoreReceiptURL else {
+        guard !self.isRunningInSimulator else {
+            return true
+        }
+
+        guard let path = self.bundle.value.appStoreReceiptURL?.path else {
             return false
         }
 
-        return url.path.contains("sandboxReceipt")
+        // `true` for either `macOS` or `Catalyst`
+        let isMASReceipt = path.contains("MASReceipt/receipt")
+        if isMASReceipt {
+            return path.contains("Xcode/DerivedData")
+        } else {
+            return path.contains("sandboxReceipt")
+        }
     }
 
-    #if DEBUG
-    // Mutable in tests so it can be overriden
-    static var `default`: SandboxEnvironmentDetector = BundleSandboxEnvironmentDetector()
-    #else
     static let `default`: SandboxEnvironmentDetector = BundleSandboxEnvironmentDetector()
-    #endif
 
 }
 
-#if swift(<5.8)
-// `Bundle` is not `Sendable` as of Swift 5.7, but this class performs no mutations.
-extension BundleSandboxEnvironmentDetector: @unchecked Sendable {}
-#endif
+extension BundleSandboxEnvironmentDetector: Sendable {}

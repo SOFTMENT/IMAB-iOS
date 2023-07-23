@@ -9,25 +9,48 @@ import UIKit
 import SDWebImage
 import GeoFire
 import CoreLocation
+import FirebaseFirestoreSwift
 import Firebase
 
+
 class HomeViewController : UIViewController {
+    let refreshControl = UIRefreshControl()
+    @IBOutlet weak var searchView: UIView!
+    
+    
+    @IBOutlet weak var headHomeLabel: UILabel!
+    @IBOutlet weak var letSearchStack: UIStackView!
+    @IBOutlet weak var searchFakeView: UIView!
+    @IBOutlet weak var searchBar: UISearchBar!
     
     var locationManager : CLLocationManager!
     var i = 0;
     let radiusInM: Double = 3000 * 1000
     @IBOutlet weak var tableViewHeight: NSLayoutConstraint!
-    @IBOutlet weak var mProfile: UIImageView!
-    @IBOutlet weak var mDate: UILabel!
-   
-    @IBOutlet weak var notifications: UIImageView!
-    @IBOutlet weak var searchTF: UITextField!
     @IBOutlet weak var tableView: UITableView!
-    var hostModels = Array<HostModel>()
+    var eventModels =  Array<EventModel>()
+    var searchModels =  Array<EventModel>()
     
     @IBOutlet weak var no_hosts_available: UILabel!
     
     override func viewDidLoad() {
+        
+        guard UserModel.data != nil else{
+            DispatchQueue.main.async {
+                self.logout()
+            }
+            return
+        }
+        
+        searchFakeView.layer.cornerRadius = 8
+        searchFakeView.dropShadow()
+        searchFakeView.isUserInteractionEnabled = true
+        searchFakeView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(searchFakeClicked)))
+        
+        
+        searchBar.backgroundImage = UIImage()
+        searchBar.searchTextField.backgroundColor = UIColor.white
+        searchBar.delegate = self
         
         
         locationManager = CLLocationManager()
@@ -35,146 +58,87 @@ class HomeViewController : UIViewController {
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.requestWhenInUseAuthorization()
         
-        searchTF.changePlaceholderColour()
-        searchTF.delegate = self
-        
-        mProfile.layer.cornerRadius = 8
         
         tableView.delegate = self
         tableView.dataSource = self
         
-        mDate.isUserInteractionEnabled = true
-        mDate.text = self.convertDateFormater(Date())
-        
-        
-        guard let userModel = UserModel.data else{
-            DispatchQueue.main.async {
-                self.logout()
-            }
-            return
-        }
-        
-        if let profileURL = userModel.profilePic, !profileURL.isEmpty {
-            mProfile.sd_setImage(with: URL(string: profileURL), placeholderImage: UIImage(named: "placeholder"), progress: .none)
-        }
-        
         self.view.isUserInteractionEnabled = true
         self.view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(hideKeyboard)))
         ProgressHUDShow(text: "")
+        getEventData()
         
-        notifications.isUserInteractionEnabled = true
-        notifications.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(notificationClicked)))
-    }
-    
-    @objc func notificationClicked(){
-        
-    }
-    
-    func getAllHosts(){
-    
-      
-        let center = CLLocationCoordinate2D(latitude: Constants.latitude, longitude: Constants.longitude)
-      
-        
-        let queryBounds = GFUtils.queryBounds(forLocation: center,
-                                              withRadius: radiusInM)
-        
-        
-        var queries : [Query]!
-        
-      
-         
-            queries = queryBounds.map { bound -> Query in
-              
-                return Firestore.firestore().collection("Users")
-                    .order(by: "geoHash")
-                    .whereField("host", isEqualTo: true)
-                    .start(at: [bound.startValue])
-                    .end(at: [bound.endValue])
-            }
-        
+        refreshControl.attributedTitle = NSAttributedString(string: "Pull to refresh")
 
-        
-        
-        hostModels.removeAll()
-    
-        for query in queries {
-          
-            query.getDocuments(completion: getDocumentsCompletion)
-        }
-    
-        self.ProgressHUDHide()
+        refreshControl.addTarget(self, action: #selector(self.refresh(_:)), for: .valueChanged)
+        tableView.refreshControl = refreshControl
     }
-    func getDocumentsCompletion(snapshot: QuerySnapshot?, error: Error?) -> () {
-       
-        guard let documents = snapshot?.documents else {
-            self.showError(error!.localizedDescription)
-            return
-        }
-        
-       
-        for document in documents {
-       
-            let lat = document.data()["latitude"] as? Double ?? 0
-            let lng = document.data()["longitude"] as? Double ?? 0
-         
-            let coordinates = CLLocation(latitude: lat, longitude: lng)
-            let centerPoint = CLLocation(latitude: Constants.latitude, longitude: Constants.longitude)
+    @objc func refresh(_ sender: AnyObject) {
+       getEventData()
+    }
+    
+    func getEventData(){
+      
+        getAllEventsForFan { eventModels in
+            self.refreshControl.endRefreshing()
+            self.ProgressHUDHide()
+            self.searchModels.removeAll()
+            self.eventModels.removeAll()
             
-            // We have to filter out a few false positives due to GeoHash accuracy, but
-            // most will match
-            let distance = GFUtils.distance(from: centerPoint, to: coordinates)
-            if distance <= radiusInM {
-                if let hostModel = try? document.data(as: HostModel.self) {
-                    
-                    self.hostModels.removeAll { host in
-                        if hostModel.uid == host.uid {
-                            return true
-                        }
-                       return false
-                    }
-
-              
-                    if let totalEvent = hostModel.totalEvents , totalEvent > 0 {
-                        
-                        hostModels.append(hostModel)
-                        
-                        
-                    }
-                  
-                }
+            if let eventModels = eventModels {
+                self.eventModels.append(contentsOf: eventModels)
+                self.searchModels.append(contentsOf: eventModels)
             }
+            self.tableView.reloadData()
         }
-        
-        tableView.reloadData()
-
-       
     }
+    
+    @objc func searchFakeClicked(){
+        
+        UIView.transition(with:searchBar, duration: 0.5,
+                          options: .transitionCrossDissolve,
+                          animations: {
+            self.searchFakeView.isHidden = true
+            self.headHomeLabel.isHidden = false
+            
+            self.letSearchStack.isHidden = true
+            self.searchView.isHidden = false
+            
+            self.searchBar.becomeFirstResponder()
+            
+            
+        })
+        
+        
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        searchBar.searchTextField.tintColor = .darkGray
+        self.searchBar.searchTextField.leftView?.tintColor = UIColor.red
+        self.searchBar.searchTextField.font = UIFont(name: "montregular", size: 9)
+        self.searchBar.frame.size.height = 38
+        self.searchBar.reloadInputViews()
+    }
+    
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-        if segue.identifier == "showHostSeg" {
-            if let vc = segue.destination as? ShowHostProfileViewController {
-                if let hostModel = sender as? HostModel {
-                    vc.hostModel = hostModel
+        if segue.identifier == "eventDetailsSeg" {
+            if let VC = segue.destination as? EventDetailsViewController {
+                if let eventModel = sender as? EventModel {
+                    VC.eventModel = eventModel
                 }
             }
         }
     }
-    @objc func cellClicked(gest : MyGest) {
-        let host = hostModels[gest.position]
-        performSegue(withIdentifier: "showHostSeg", sender: host)
+    @objc func cellClicked(gest : MyGesture) {
+        performSegue(withIdentifier: "eventDetailsSeg", sender: searchModels[gest.index])
     }
+    
     
     @objc func hideKeyboard(){
         
         self.view.endEditing(true)
     }
-    func refreshTableViewHeight(){
-       
-    
-        self.tableViewHeight.constant = CGFloat((120)) * CGFloat(hostModels.count)
-        
-    }
+
 }
 
 extension HomeViewController : UITextFieldDelegate {
@@ -188,35 +152,80 @@ extension HomeViewController : UITextFieldDelegate {
 
 extension HomeViewController : UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        self.no_hosts_available.isHidden = hostModels.count > 0 ? true : false
-        return hostModels.count
+        self.no_hosts_available.isHidden = eventModels.count > 0 ? true : false
+        return searchModels.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        if let cell = tableView.dequeueReusableCell(withIdentifier: "hostCell", for: indexPath) as? HostTableViewCell {
+        if let cell = tableView.dequeueReusableCell(withIdentifier: "eventCell", for: indexPath) as? Event_TableView_Cell {
             
-            cell.mView.layer.cornerRadius = 8
-            cell.mViewProfile.layer.cornerRadius = 8
-            cell.mProfile.layer.cornerRadius = 8
-            let hostModel = hostModels[indexPath.row]
-            if let profilePath = hostModel.profilePic, !profilePath.isEmpty {
-                cell.mProfile.sd_setImage(with: URL(string: profilePath), placeholderImage: UIImage(named: "profile-placeholder"), progress: .none)
+       
+            let eventModel = searchModels[indexPath.row]
+            cell.eventImage.layer.cornerRadius = 8
+            if let path = eventModel.eventImage, !path.isEmpty {
+                cell.eventImage.sd_setImage(with: URL(string: path), placeholderImage: UIImage(named: "placeholder"))
             }
-            cell.mName.text = hostModel.fullName ?? ""
-            cell.mAddress.text = hostModel.address ?? ""
             
-            let myGest = MyGest(target: self, action: #selector(cellClicked(gest: )))
-            myGest.position = indexPath.row
+            getHostData(uid: eventModel.uid ?? "123") { hostModel, error in
+                if let hostModel = hostModel {
+                  
+                    if let disable = hostModel.disable, disable {
+                        self.eventModels.remove(at: indexPath.row)
+                        self.tableView.reloadData()
+                    }
+                    else {
+                        cell.eventName.text = hostModel.fullName ?? ""
+                    }
+                }
+                else {
+                    self.eventModels.remove(at: indexPath.row)
+                    self.tableView.reloadData()
+                }
+            }
+            
+          
+            
+            
+            if eventModel.fontType == "light" {
+                cell.eventName.textColor = UIColor.white
+                cell.eventDate.textColor = UIColor.white
+                cell.eventTime.textColor = UIColor.white
+              
+                
+                cell.clockIcon.tintColor = UIColor.white
+           
+            }
+            else {
+                cell.eventName.textColor = UIColor.black
+                cell.eventDate.textColor = UIColor.black
+                cell.eventTime.textColor = UIColor.black
+              
+                
+                cell.clockIcon.tintColor = UIColor.black
+               
+            }
+            
+            if let startTime = eventModel.time {
+                cell.eventTime.isHidden = false
+                cell.eventTime.text = self.convertDateIntoTimeForRecurringVoucher(startTime)
+            }
+            else {
+                cell.eventTime.isHidden = true
+            }
+            
+            cell.eventDate.text = self.convertDateFormater(eventModel.date ?? Date())
+           
+
             cell.mView.isUserInteractionEnabled = true
-            cell.mView.addGestureRecognizer(myGest)
+            let gest = MyGesture(target: self, action: #selector(cellClicked(gest: )))
+            gest.index = indexPath.row
+            cell.mView.addGestureRecognizer(gest)
             
-            refreshTableViewHeight()
-            cell.layoutIfNeeded()
-            
+           
             return cell
         }
-        return HostTableViewCell()
+        return Event_TableView_Cell()
         
     }
     
@@ -233,8 +242,7 @@ extension  HomeViewController : CLLocationManagerDelegate {
         
         switch status {
         case .notDetermined, .restricted, .denied:
-            
-            self.showSnack(messages: "Enable Location Permission")
+            print("LOCATIO DENIED")
         case .authorizedAlways, .authorizedWhenInUse:
             
             locationManager.startUpdatingLocation()
@@ -252,13 +260,62 @@ extension  HomeViewController : CLLocationManagerDelegate {
         Constants.latitude = userLocation.coordinate.latitude
         Constants.longitude = userLocation.coordinate.longitude
         
+        UserModel.data!.latitude = userLocation.coordinate.latitude
+        UserModel.data!.longitude = userLocation.coordinate.longitude
         
-        self.getAllHosts()
+        let location  = CLLocationCoordinate2D(latitude: userLocation.coordinate.latitude , longitude: userLocation.coordinate.longitude)
+        let hash = GFUtils.geoHash(forLocation: location)
+        UserModel.data!.geoHash = hash
+        try? FirebaseStoreManager.db.collection("Users").document(UserModel.data!.uid ?? "123").setData(from: UserModel.data!,merge:true)
+        
         
         DispatchQueue.main.async {
             self.locationManager.stopUpdatingLocation()
-           
+            
         }
         
     }
 }
+
+extension HomeViewController : UISearchBarDelegate {
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        self.searchView.isHidden = true
+        self.searchBar.searchTextField.text = ""
+        self.searchBar.resignFirstResponder()
+        UIView.transition(with:searchBar, duration: 0.4,
+                          options: .transitionCrossDissolve,
+                          animations: {
+            self.searchFakeView.isHidden = false
+            self.headHomeLabel.isHidden = true
+            
+            self.letSearchStack.isHidden = false
+            
+            
+            
+        })
+        
+        searchModels.removeAll()
+        searchModels.append(contentsOf: eventModels)
+        tableView.reloadData()
+        
+    }
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        self.searchBar.resignFirstResponder()
+        searchModels.removeAll()
+        if let sValue = searchBar.text, !sValue.isEmpty {
+            for model in eventModels {
+                if (model.name!.uppercased()).contains(sValue.uppercased()) || (model.hostName!.uppercased().contains(sValue.uppercased())) {
+                    self.searchModels.append(model)
+                }
+            }
+        }
+        else {
+            searchModels.append(contentsOf: eventModels)
+        }
+        tableView.reloadData()
+
+    }
+    
+    
+}
+

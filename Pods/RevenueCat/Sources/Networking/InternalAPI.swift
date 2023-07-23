@@ -25,14 +25,15 @@ final class InternalAPI {
         self.callbackCache = .init()
     }
 
-    func healthRequest(completion: @escaping ResponseHandler) {
-        let operation = HealthOperation(httpClient: self.backendConfig.httpClient,
-                                        callbackCache: self.callbackCache)
+    func healthRequest(signatureVerification: Bool, completion: @escaping ResponseHandler) {
+        let factory = HealthOperation.createFactory(httpClient: self.backendConfig.httpClient,
+                                                    callbackCache: self.callbackCache,
+                                                    signatureVerification: signatureVerification)
 
-        let callback = HealthOperation.Callback(cacheKey: operation.cacheKey, completion: completion)
+        let callback = HealthOperation.Callback(cacheKey: factory.cacheKey, completion: completion)
         let cacheStatus = self.callbackCache.add(callback)
 
-        self.backendConfig.addCacheableOperation(operation,
+        self.backendConfig.addCacheableOperation(with: factory,
                                                  withRandomDelay: false,
                                                  cacheStatus: cacheStatus)
     }
@@ -41,7 +42,7 @@ final class InternalAPI {
 
 // MARK: - Health
 
-private class HealthOperation: CacheableNetworkOperation {
+private final class HealthOperation: CacheableNetworkOperation {
 
     struct Callback: CacheKeyProviding {
 
@@ -57,28 +58,59 @@ private class HealthOperation: CacheableNetworkOperation {
     }
 
     private let callbackCache: CallbackCache<Callback>
+    private let signatureVerification: Bool
 
-    init(httpClient: HTTPClient,
-         callbackCache: CallbackCache<Callback>) {
+    static func createFactory(
+        httpClient: HTTPClient,
+        callbackCache: CallbackCache<Callback>,
+        signatureVerification: Bool
+    ) -> CacheableNetworkOperationFactory<HealthOperation> {
+        return .init({ .init(httpClient: httpClient,
+                             callbackCache: callbackCache,
+                             cacheKey: $0,
+                             signatureVerification: signatureVerification) },
+                     individualizedCacheKeyPart: "")
+    }
+
+    private init(httpClient: HTTPClient,
+                 callbackCache: CallbackCache<Callback>,
+                 cacheKey: String,
+                 signatureVerification: Bool) {
         self.callbackCache = callbackCache
+        self.signatureVerification = signatureVerification
 
-        super.init(configuration: Configuration(httpClient: httpClient),
-                   individualizedCacheKeyPart: "")
+        super.init(configuration: Configuration(httpClient: httpClient), cacheKey: cacheKey)
     }
 
     override func begin(completion: @escaping () -> Void) {
-        self.httpClient.perform(
-            .init(method: .get, path: .health)
-        ) { (response: HTTPResponse<HTTPEmptyResponseBody>.Result) in
-            self.callbackCache.performOnAllItemsAndRemoveFromCache(withCacheable: self) { callback in
-                callback.completion(
-                    response
-                        .mapError(BackendError.networkError)
-                        .error
-                )
-            }
+        let request: HTTPRequest = .init(method: .get, path: .health)
 
-            completion()
+        self.httpClient.perform(
+            request,
+            with: self.verificationMode
+        ) { (response: HTTPResponse<HTTPEmptyResponseBody>.Result) in
+            self.finish(with: response, completion: completion)
+        }
+    }
+
+    private func finish(with response: HTTPResponse<HTTPEmptyResponseBody>.Result,
+                        completion: () -> Void) {
+        self.callbackCache.performOnAllItemsAndRemoveFromCache(withCacheable: self) { callback in
+            callback.completion(
+                response
+                    .mapError(BackendError.networkError)
+                    .error
+            )
+        }
+
+        completion()
+    }
+
+    private var verificationMode: Signing.ResponseVerificationMode {
+        if self.signatureVerification, #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *) {
+            return Signing.enforcedVerificationMode()
+        } else {
+            return .disabled
         }
     }
 

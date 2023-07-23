@@ -46,6 +46,8 @@ public protocol PurchasesType: AnyObject {
      */
     var delegate: PurchasesDelegate? { get set }
 
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
     /**
      * This function will log in the current user with an ``appUserID``.
      *
@@ -67,8 +69,8 @@ public protocol PurchasesType: AnyObject {
      *
      * #### Related Articles
      * - [Identifying Users](https://docs.revenuecat.com/docs/user-ids)
-     * - ``logOut(completion:)``
-     * - ``isAnonymous``
+     * - ``Purchases/logOut(completion:)``
+     * - ``Purchases/isAnonymous``
      * - ``Purchases/appUserID``
      */
     func logIn(_ appUserID: String, completion: @escaping (CustomerInfo?, Bool, PublicError?) -> Void)
@@ -93,8 +95,8 @@ public protocol PurchasesType: AnyObject {
      *
      * #### Related Articles
      * - [Identifying Users](https://docs.revenuecat.com/docs/user-ids)
-     * - ``logOut()``
-     * - ``isAnonymous``
+     * - ``Purchases/logOut()``
+     * - ``Purchases/isAnonymous``
      * - ``Purchases/appUserID``
      */
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
@@ -108,8 +110,8 @@ public protocol PurchasesType: AnyObject {
      *
      * #### Related Articles
      * - [Identifying Users](https://docs.revenuecat.com/docs/user-ids)
-     * - ``logIn(_:completion:)``
-     * - ``isAnonymous``
+     * - ``Purchases/logIn(_:)-arja``
+     * - ``Purchases/isAnonymous``
      * - ``Purchases/appUserID``
      */
     func logOut(completion: ((CustomerInfo?, PublicError?) -> Void)?)
@@ -122,8 +124,8 @@ public protocol PurchasesType: AnyObject {
      *
      * #### Related Articles
      * - [Identifying Users](https://docs.revenuecat.com/docs/user-ids)
-     * - ``logIn(_:)``
-     * - ``isAnonymous``
+     * - ``Purchases/logIn(_:)-arja``
+     * - ``Purchases/isAnonymous``
      * - ``Purchases/appUserID``
      */
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
@@ -166,6 +168,8 @@ public protocol PurchasesType: AnyObject {
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func customerInfo(fetchPolicy: CacheFetchPolicy) async throws -> CustomerInfo
 
+    #endif
+
     /**
      * Fetch the configured ``Offerings`` for this user.
      *
@@ -202,7 +206,7 @@ public protocol PurchasesType: AnyObject {
      * Fetches the ``StoreProduct``s for your IAPs for given `productIdentifiers`.
      *
      * Use this method if you aren't using ``Purchases/getOfferings(completion:)``.
-     * You should use ``getOfferings(completion:)`` though.
+     * You should use ``Purchases/getOfferings(completion:)`` though.
      *
      * - Note: `completion` may be called without ``StoreProduct``s that you are expecting. This is usually caused by
      * iTunesConnect configuration errors. Ensure your IAPs have the "Ready to Submit" status in iTunesConnect.
@@ -224,8 +228,8 @@ public protocol PurchasesType: AnyObject {
     /**
      * Fetches the ``StoreProduct``s for your IAPs for given `productIdentifiers`.
      *
-     * Use this method if you aren't using ``getOfferings(completion:)``.
-     * You should use ``getOfferings(completion:)`` though.
+     * Use this method if you aren't using ``Purchases/getOfferings(completion:)``.
+     * You should use ``Purchases/getOfferings(completion:)`` though.
      *
      * - Note: The result might not contain the ``StoreProduct``s that you are expecting. This is usually caused by
      * iTunesConnect configuration errors. Ensure your IAPs have the "Ready to Submit" status in iTunesConnect.
@@ -277,14 +281,17 @@ public protocol PurchasesType: AnyObject {
      * - Important: Call this method when a user has decided to purchase a product.
      * Only call this in direct response to user input.
      *
-     * From here ``Purchases`` will handle the purchase with `StoreKit` and call the ``PurchaseCompletedBlock``.
+     * From here ``Purchases`` will handle the purchase with `StoreKit` and return ``PurchaseResultData``.
      *
-     * - Note: You do not need to finish the transaction yourself in the completion callback, ``Purchases`` will
+     * - Note: You do not need to finish the transaction yourself after this, ``Purchases`` will
      * handle this for you.
      *
      * - Parameter product: The ``StoreProduct`` the user intends to purchase.
      *
-     * If the user cancelled, `userCancelled` will be `true`.
+     * - Throws: An error of type ``ErrorCode`` is thrown if a failure occurs while purchasing
+     *
+     * - Returns: A tuple with ``StoreTransaction`` and a ``CustomerInfo`` if the purchase was successful.
+     * If the user cancelled the purchase, `userCancelled` will be `true`.
      */
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func purchase(product: StoreProduct) async throws -> PurchaseResultData
@@ -318,112 +325,20 @@ public protocol PurchasesType: AnyObject {
      * - Important: Call this method when a user has decided to purchase a product.
      * Only call this in direct response to user input.
      *
-     * From here ``Purchases`` will handle the purchase with `StoreKit` and call the ``PurchaseCompletedBlock``.
+     * From here ``Purchases`` will handle the purchase with `StoreKit` and return ``PurchaseResultData``.
      *
-     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will
+     * - Note: You do not need to finish the transaction yourself after this, Purchases will
      * handle this for you.
      *
      * - Parameter package: The ``Package`` the user intends to purchase
      *
-     * If the user cancelled, `userCancelled` will be `true`.
+     * - Throws: An error of type ``ErrorCode`` is thrown if a failure occurs while purchasing
+     *
+     * - Returns: A tuple with ``StoreTransaction`` and a ``CustomerInfo`` if the purchase was successful.
+     * If the user cancelled the purchase, `userCancelled` will be `true`.
      */
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func purchase(package: Package) async throws -> PurchaseResultData
-
-    /**
-     * Initiates a purchase of a ``StoreProduct`` with a ``PromotionalOffer``.
-     *
-     * Use this function if you are not using the Offerings system to purchase a ``StoreProduct`` with an
-     * applied ``PromotionalOffer``.
-     * If you are using the Offerings system, use ``Purchases/purchase(package:promotionalOffer:completion:)`` instead.
-     *
-     * - Important: Call this method when a user has decided to purchase a product with an applied discount.
-     * Only call this in direct response to user input.
-     *
-     * From here ``Purchases`` will handle the purchase with `StoreKit` and call the ``PurchaseCompletedBlock``.
-     *
-     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will handle
-     * this for you.
-     *
-     * - Parameter product: The ``StoreProduct`` the user intends to purchase.
-     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase.
-     * - Parameter completion: A completion block that is called when the purchase completes.
-     *
-     * If the purchase was successful there will be a ``StoreTransaction`` and a ``CustomerInfo``.
-     * If the purchase was not successful, there will be an `NSError`.
-     * If the user cancelled, `userCancelled` will be `true`.
-     *
-     * #### Related Symbols
-     * - ``StoreProduct/discounts``
-     * - ``StoreProduct/eligiblePromotionalOffers()``
-     * - ``promotionalOffer(forProductDiscount:product:)``
-     */
-    @available(iOS 12.2, macOS 10.14.4, watchOS 6.2, macCatalyst 13.0, tvOS 12.2, *)
-    @objc(purchaseProduct:withPromotionalOffer:completion:)
-    func purchase(product: StoreProduct,
-                  promotionalOffer: PromotionalOffer,
-                  completion: @escaping PurchaseCompletedBlock)
-
-    /**
-     * Use this function if you are not using the Offerings system to purchase a ``StoreProduct`` with an
-     * applied ``PromotionalOffer``.
-     * If you are using the Offerings system, use ``Purchases/purchase(package:promotionalOffer:completion:)`` instead.
-     *
-     * Call this method when a user has decided to purchase a product with an applied discount.
-     * Only call this in direct response to user input.
-     *
-     * From here ``Purchases`` will handle the purchase with `StoreKit` and call the ``PurchaseCompletedBlock``.
-     *
-     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will handle
-     * this for you.
-     *
-     * - Parameter product: The ``StoreProduct`` the user intends to purchase
-     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase
-     *
-     * If the user cancelled, `userCancelled` will be `true`.
-     */
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
-    func purchase(product: StoreProduct, promotionalOffer: PromotionalOffer) async throws -> PurchaseResultData
-
-    /**
-     * Purchase the passed ``Package``.
-     * Call this method when a user has decided to purchase a product with an applied discount. Only call this in
-     * direct response to user input. From here ``Purchases`` will handle the purchase with `StoreKit` and call the
-     * ``PurchaseCompletedBlock``.
-     *
-     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will handle
-     * this for you.
-     *
-     * - Parameter package: The ``Package`` the user intends to purchase
-     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase
-     * - Parameter completion: A completion block that is called when the purchase completes.
-     *
-     * If the purchase was successful there will be a ``StoreTransaction`` and a ``CustomerInfo``.
-     * If the purchase was not successful, there will be an `NSError`.
-     * If the user cancelled, `userCancelled` will be `true`.
-     */
-    @available(iOS 12.2, macOS 10.14.4, watchOS 6.2, macCatalyst 13.0, tvOS 12.2, *)
-    @objc(purchasePackage:withPromotionalOffer:completion:)
-    func purchase(package: Package,
-                  promotionalOffer: PromotionalOffer,
-                  completion: @escaping PurchaseCompletedBlock)
-
-    /**
-     * Purchase the passed ``Package``.
-     * Call this method when a user has decided to purchase a product with an applied discount. Only call this in
-     * direct response to user input. From here ``Purchases`` will handle the purchase with `StoreKit` and call the
-     * ``PurchaseCompletedBlock``.
-     *
-     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will handle
-     * this for you.
-     *
-     * - Parameter package: The ``Package`` the user intends to purchase
-     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase
-     *
-     * If the user cancelled, `userCancelled` will be `true`.
-     */
-    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
-    func purchase(package: Package, promotionalOffer: PromotionalOffer) async throws -> PurchaseResultData
 
     /**
      * This method will post all purchases associated with the current App Store account to RevenueCat and become
@@ -437,6 +352,10 @@ public protocol PurchasesType: AnyObject {
      * - Note: This may force your users to enter the App Store password so should only be performed on request of
      * the user. Typically with a button in settings or near your purchase UI. Use
      * ``Purchases/syncPurchases(completion:)`` if you need to restore transactions programmatically.
+     *
+     * - Warning: Receiving a ``CustomerInfo`` instead of an error does not imply that the user has any
+     * entitlements, simply that the process was successful. You must verify the ``CustomerInfo/entitlements``
+     * to confirm that they are active.
      */
     func restorePurchases(completion: ((CustomerInfo?, PublicError?) -> Void)?)
 
@@ -452,6 +371,10 @@ public protocol PurchasesType: AnyObject {
      * - Note: This may force your users to enter the App Store password so should only be performed on request of
      * the user. Typically with a button in settings or near your purchase UI. Use
      * ``Purchases/syncPurchases(completion:)`` if you need to restore transactions programmatically.
+     *
+     * - Warning: Receiving a ``CustomerInfo`` instead of an error does not imply that the user has any
+     * entitlements, simply that the process was successful. You must verify the ``CustomerInfo/entitlements``
+     * to confirm that they are active.
      */
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func restorePurchases() async throws -> CustomerInfo
@@ -489,6 +412,109 @@ public protocol PurchasesType: AnyObject {
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func syncPurchases() async throws -> CustomerInfo
 
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
+    /**
+     * Initiates a purchase of a ``StoreProduct`` with a ``PromotionalOffer``.
+     *
+     * Use this function if you are not using the Offerings system to purchase a ``StoreProduct`` with an
+     * applied ``PromotionalOffer``.
+     * If you are using the Offerings system, use ``Purchases/purchase(package:promotionalOffer:completion:)`` instead.
+     *
+     * - Important: Call this method when a user has decided to purchase a product with an applied discount.
+     * Only call this in direct response to user input.
+     *
+     * From here ``Purchases`` will handle the purchase with `StoreKit` and call the ``PurchaseCompletedBlock``.
+     *
+     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will handle
+     * this for you.
+     *
+     * - Parameter product: The ``StoreProduct`` the user intends to purchase.
+     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase.
+     * - Parameter completion: A completion block that is called when the purchase completes.
+     *
+     * If the purchase was successful there will be a ``StoreTransaction`` and a ``CustomerInfo``.
+     * If the purchase was not successful, there will be an `NSError`.
+     * If the user cancelled, `userCancelled` will be `true`.
+     *
+     * #### Related Symbols
+     * - ``StoreProduct/discounts``
+     * - ``StoreProduct/eligiblePromotionalOffers()``
+     * - ``Purchases/promotionalOffer(forProductDiscount:product:)``
+     */
+    @available(iOS 12.2, macOS 10.14.4, watchOS 6.2, macCatalyst 13.0, tvOS 12.2, *)
+    @objc(purchaseProduct:withPromotionalOffer:completion:)
+    func purchase(product: StoreProduct,
+                  promotionalOffer: PromotionalOffer,
+                  completion: @escaping PurchaseCompletedBlock)
+
+    /**
+     * Use this function if you are not using the Offerings system to purchase a ``StoreProduct`` with an
+     * applied ``PromotionalOffer``.
+     * If you are using the Offerings system, use ``Purchases/purchase(package:promotionalOffer:completion:)`` instead.
+     *
+     * Call this method when a user has decided to purchase a product with an applied discount.
+     * Only call this in direct response to user input.
+     *
+     * From here ``Purchases`` will handle the purchase with `StoreKit` and return ``PurchaseResultData``.
+     *
+     * - Note: You do not need to finish the transaction yourself after this, Purchases will handle
+     * this for you.
+     *
+     * - Parameter product: The ``StoreProduct`` the user intends to purchase
+     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase
+     *
+     * - Throws: An error of type ``ErrorCode`` is thrown if a failure occurs while purchasing
+     *
+     * - Returns: A tuple with ``StoreTransaction`` and a ``CustomerInfo`` if the purchase was successful.
+     * If the user cancelled the purchase, `userCancelled` will be `true`.
+     */
+    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
+    func purchase(product: StoreProduct, promotionalOffer: PromotionalOffer) async throws -> PurchaseResultData
+
+    /**
+     * Purchase the passed ``Package``.
+     * Call this method when a user has decided to purchase a product with an applied discount. Only call this in
+     * direct response to user input. From here ``Purchases`` will handle the purchase with `StoreKit` and call the
+     * ``PurchaseCompletedBlock``.
+     *
+     * - Note: You do not need to finish the transaction yourself in the completion callback, Purchases will handle
+     * this for you.
+     *
+     * - Parameter package: The ``Package`` the user intends to purchase
+     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase
+     * - Parameter completion: A completion block that is called when the purchase completes.
+     *
+     * If the purchase was successful there will be a ``StoreTransaction`` and a ``CustomerInfo``.
+     * If the purchase was not successful, there will be an `NSError`.
+     * If the user cancelled, `userCancelled` will be `true`.
+     */
+    @available(iOS 12.2, macOS 10.14.4, watchOS 6.2, macCatalyst 13.0, tvOS 12.2, *)
+    @objc(purchasePackage:withPromotionalOffer:completion:)
+    func purchase(package: Package,
+                  promotionalOffer: PromotionalOffer,
+                  completion: @escaping PurchaseCompletedBlock)
+
+    /**
+     * Purchase the passed ``Package``.
+     * Call this method when a user has decided to purchase a product with an applied discount. Only call this in
+     * direct response to user input. From here ``Purchases`` will handle the purchase with `StoreKit` and return
+     * ``PurchaseResultData``.
+     *
+     * - Note: You do not need to finish the transaction yourself after this, Purchases will handle
+     * this for you.
+     *
+     * - Parameter package: The ``Package`` the user intends to purchase
+     * - Parameter promotionalOffer: The ``PromotionalOffer`` to apply to the purchase
+     *
+     * - Throws: An error of type ``ErrorCode`` is thrown if a failure occurs while purchasing
+     *
+     * - Returns: A tuple with ``StoreTransaction`` and a ``CustomerInfo`` if the purchase was successful.
+     * If the user cancelled the purchase, `userCancelled` will be `true`.
+     */
+    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
+    func purchase(package: Package, promotionalOffer: PromotionalOffer) async throws -> PurchaseResultData
+
     /**
      * Computes whether or not a user is eligible for the introductory pricing period of a given product.
      * You should use this method to determine whether or not you show the user the normal product price or
@@ -509,7 +535,7 @@ public protocol PurchasesType: AnyObject {
      * - Parameter receiveEligibility: A block that receives a dictionary of `product_id` -> ``IntroEligibility``.
      *
      * ### Related symbols
-     * - ``checkTrialOrIntroDiscountEligibility(product:completion:)``
+     * - ``Purchases/checkTrialOrIntroDiscountEligibility(product:completion:)``
      */
     @objc(checkTrialOrIntroDiscountEligibility:completion:)
     func checkTrialOrIntroDiscountEligibility(
@@ -535,7 +561,7 @@ public protocol PurchasesType: AnyObject {
      * - Parameter productIdentifiers: Array of product identifiers for which you want to compute eligibility
      *
      * ### Related symbols
-     * - ``checkTrialOrIntroDiscountEligibility(product:)``
+     * - ``Purchases/checkTrialOrIntroDiscountEligibility(product:)``
      */
     @available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
     func checkTrialOrIntroDiscountEligibility(productIdentifiers: [String]) async -> [String: IntroEligibility]
@@ -560,7 +586,7 @@ public protocol PurchasesType: AnyObject {
      * - Parameter completion: A block that receives an ``IntroEligibilityStatus``.
      *
      * ### Related symbols
-     * - ``checkTrialOrIntroDiscountEligibility(productIdentifiers:completion:)``
+     * - ``Purchases/checkTrialOrIntroDiscountEligibility(productIdentifiers:completion:)``
      */
     @objc(checkTrialOrIntroDiscountEligibilityForProduct:completion:)
     func checkTrialOrIntroDiscountEligibility(
@@ -587,14 +613,15 @@ public protocol PurchasesType: AnyObject {
      * - Parameter product: The ``StoreProduct``  for which you want to compute eligibility.
      *
      * ### Related symbols
-     * - ``checkTrialOrIntroDiscountEligibility(productIdentifiers:)``
+     * - ``Purchases/checkTrialOrIntroDiscountEligibility(productIdentifiers:)``
      */
     @available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *)
     func checkTrialOrIntroDiscountEligibility(product: StoreProduct) async -> IntroEligibilityStatus
 
     /**
      * Use this method to fetch ``PromotionalOffer``
-     *  to use in ``purchase(package:promotionalOffer:)`` or ``purchase(product:promotionalOffer:)``.
+     *  to use in ``Purchases/purchase(package:promotionalOffer:)``
+     *  or ``Purchases/purchase(product:promotionalOffer:)``.
      * [iOS Promotional Offers](https://docs.revenuecat.com/docs/ios-subscription-offers#promotional-offers).
      * - Note: If you're looking to use free trials or Introductory Offers instead,
      * use ``Purchases/checkTrialOrIntroDiscountEligibility(productIdentifiers:completion:)``.
@@ -629,11 +656,13 @@ public protocol PurchasesType: AnyObject {
     /// - Note: if checking for eligibility for a `StoreProductDiscount` fails (for example, if network is down),
     ///   that discount will fail silently and be considered not eligible.
     /// #### Related Symbols
-    /// - ``promotionalOffer(forProductDiscount:product:)``
+    /// - ``Purchases/promotionalOffer(forProductDiscount:product:)``
     /// - ``StoreProduct/eligiblePromotionalOffers()``
     /// - ``StoreProduct/discounts``
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func eligiblePromotionalOffers(forProduct product: StoreProduct) async -> [PromotionalOffer]
+
+    #endif
 
     /**
      * Invalidates the cache for customer information.
@@ -695,8 +724,8 @@ public protocol PurchasesType: AnyObject {
      * or multiple active entitlements were found for the user, an `Error` will be thrown.
      *
      *- important: This method should only be used if your user can only
-     * have a single active entitlement at a given time.
-     * If a user could have more than one entitlement at a time, use ``beginRefundRequest(forEntitlement:)`` instead.
+     * have a single active entitlement at a given time. If a user could have more than one entitlement at a time,
+     * use ``Purchases/beginRefundRequest(forEntitlement:)`` instead.
      */
     @available(iOS 15.0, *)
     @available(macOS, unavailable)
@@ -784,6 +813,8 @@ public protocol PurchasesType: AnyObject {
 
     #endif
 
+    #if !ENABLE_CUSTOM_ENTITLEMENT_COMPUTATION
+
     /**
      * ``Attribution`` object that is responsible for all explicit attribution APIs
      * as well as subscriber attributes that RevenueCat offers.
@@ -850,6 +881,8 @@ public protocol PurchasesType: AnyObject {
     func collectDeviceIdentifiers()
 
     // swiftlint:enable missing_docs
+
+    #endif
 
 }
 
@@ -950,9 +983,12 @@ internal protocol InternalPurchasesType: AnyObject {
     /// Performs an unauthenticated request to the API to verify connectivity.
     /// - Throws: `PublicError` if request failed.
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
-    func healthRequest() async throws
+    func healthRequest(signatureVerification: Bool) async throws
 
     @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
     func offerings(fetchPolicy: OfferingsManager.FetchPolicy) async throws -> Offerings
+
+    @available(iOS 15.0, tvOS 15.0, watchOS 8.0, macOS 12.0, *)
+    func productEntitlementMapping() async throws -> ProductEntitlementMapping
 
 }

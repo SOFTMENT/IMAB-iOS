@@ -32,11 +32,17 @@ enum IdentityStrings {
 
     case null_currentappuserid
 
-    case deleting_synced_attributes_none_found
+    case deleting_attributes_none_found
+
+    case invalidating_cached_customer_info
+
+    case switching_user(newUserID: String)
+
+    case switching_user_same_app_user_id(newUserID: String)
 
 }
 
-extension IdentityStrings: CustomStringConvertible {
+extension IdentityStrings: LogMessage {
 
     var description: String {
         switch self {
@@ -60,9 +66,18 @@ extension IdentityStrings: CustomStringConvertible {
             return "Identifying App User ID"
         case .null_currentappuserid:
             return "currentAppUserID is nil. This might happen if the cache in UserDefaults is unintentionally cleared."
-        case .deleting_synced_attributes_none_found:
-            return "Attempt to delete synced attributes for user, but there were none to delete"
+        case .deleting_attributes_none_found:
+            return "Attempt to delete attributes for user, but there were none to delete"
+        case .invalidating_cached_customer_info:
+            return "Detected unverified cached CustomerInfo but verification is enabled. Invalidating cache."
+        case let .switching_user(newUserID):
+            return "Switching to user '\(newUserID)'."
+        case let .switching_user_same_app_user_id(newUserID):
+            return "switchUser(to:) called with the same appUserID as the current user (\(newUserID)). " +
+            "This has no effect."
         }
     }
+
+    var category: String { return "identity" }
 
 }

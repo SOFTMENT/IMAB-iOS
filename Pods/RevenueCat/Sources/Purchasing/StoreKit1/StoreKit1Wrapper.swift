@@ -41,18 +41,22 @@ class StoreKit1Wrapper: NSObject {
     @available(iOS 8.0, macOS 10.14, watchOS 6.2, macCatalyst 13.0, *)
     static var simulatesAskToBuyInSandbox = false
 
-    var currentStorefront: StorefrontType? {
+    var currentStorefront: Storefront? {
         guard #available(iOS 13.0, tvOS 13.0, macOS 10.15, watchOS 6.2, *) else {
             return nil
         }
 
-        return self.paymentQueue.storefront.map(SK1Storefront.init)
+        return self.paymentQueue.storefront
+            .map(SK1Storefront.init)
+            .map(Storefront.from(storefront:))
     }
 
     /// - Note: this is not thread-safe
     weak var delegate: StoreKit1WrapperDelegate? {
         didSet {
             if self.delegate != nil {
+                self.notifyDelegateOfExistingTransactionsIfNeeded()
+
                 self.paymentQueue.add(self)
             } else {
                 self.paymentQueue.remove(self)
@@ -60,21 +64,33 @@ class StoreKit1Wrapper: NSObject {
         }
     }
 
+    private let finishedTransactionCallbacks: Atomic<[SKPaymentTransaction: [() -> Void]]> = .init([:])
+
     private let paymentQueue: SKPaymentQueue
+    private let operationDispatcher: OperationDispatcher
+    private let sandboxEnvironmentDetector: SandboxEnvironmentDetector
 
-    init(paymentQueue: SKPaymentQueue) {
+    init(paymentQueue: SKPaymentQueue = .default(),
+         operationDispatcher: OperationDispatcher = .default,
+         sandboxEnvironmentDetector: SandboxEnvironmentDetector = BundleSandboxEnvironmentDetector.default) {
         self.paymentQueue = paymentQueue
-    }
+        self.operationDispatcher = operationDispatcher
+        self.sandboxEnvironmentDetector = sandboxEnvironmentDetector
 
-    override convenience init() {
-        self.init(paymentQueue: .default())
+        super.init()
+
+        Logger.verbose(Strings.purchase.storekit1_wrapper_init(self))
     }
 
     deinit {
+        Logger.verbose(Strings.purchase.storekit1_wrapper_deinit(self))
+
         self.paymentQueue.remove(self)
     }
 
     func add(_ payment: SKPayment) {
+        Logger.debug(Strings.purchase.paymentqueue_adding_payment(self.paymentQueue, payment))
+
         self.paymentQueue.add(payment)
     }
 
@@ -98,13 +114,52 @@ class StoreKit1Wrapper: NSObject {
         return payment
     }
 
+    private func notifyDelegateOfExistingTransactionsIfNeeded() {
+        // Here be dragons. Explanation:
+        // When initializing the SDK after an app opens, `SKPaymentQueue` notifies its
+        // transaction observers of _existing_ transactions, so this method is normally not required.
+        //
+        // However: `BaseOfflineStoreKitIntegrationTests` simulates restarting apps.
+        // When it re-creates `Purchases` to do that, `StoreKit 1` doesn't know to re-notify
+        // its observers. This does so manually.
+        // This isn't required in StoreKit 2 because resubscribing to
+        // `StoreKit.Transaction.updates` does forward existing transactions.
+
+        #if DEBUG
+        guard ProcessInfo.isRunningIntegrationTests, let delegate = self.delegate else { return }
+
+        let transactions = self.paymentQueue.transactions
+        guard !transactions.isEmpty else { return }
+
+        Logger.appleWarning(
+            Strings.storeKit.sk1_wrapper_notifying_delegate_of_existing_transactions(count: transactions.count)
+        )
+
+        for transaction in transactions {
+            delegate.storeKit1Wrapper(self, updatedTransaction: transaction)
+        }
+        #endif
+    }
+
 }
 
 extension StoreKit1Wrapper: PaymentQueueWrapperType {
 
     @objc
-    func finishTransaction(_ transaction: SKPaymentTransaction) {
-        self.paymentQueue.finishTransaction(transaction)
+    func finishTransaction(_ transaction: SKPaymentTransaction, completion: @escaping () -> Void) {
+        let existingCompletion: Bool = self.finishedTransactionCallbacks.modify { callbacks in
+            let existingCompletion = callbacks[transaction] != nil
+
+            callbacks[transaction, default: []].append(completion)
+
+            return existingCompletion
+        }
+
+        if existingCompletion {
+            Logger.debug(Strings.storeKit.sk1_finish_transaction_called_with_existing_completion(transaction))
+        } else {
+            self.paymentQueue.finishTransaction(transaction)
+        }
     }
 
     #if os(iOS) || targetEnvironment(macCatalyst)
@@ -126,17 +181,40 @@ extension StoreKit1Wrapper: PaymentQueueWrapperType {
 extension StoreKit1Wrapper: SKPaymentTransactionObserver {
 
     func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
-        for transaction in transactions {
-            Logger.debug(Strings.purchase.paymentqueue_updatedtransaction(transaction: transaction))
-            self.delegate?.storeKit1Wrapper(self, updatedTransaction: transaction)
+        guard let delegate = self.delegate else { return }
+
+        if transactions.count >= Self.highTransactionCountThreshold {
+            Logger.appleWarning(Strings.storeKit.sk1_payment_queue_too_many_transactions(
+                count: transactions.count,
+                isSandbox: self.sandboxEnvironmentDetector.isSandbox
+            ))
+        }
+
+        self.operationDispatcher.dispatchOnWorkerThread {
+            for transaction in transactions {
+                Logger.debug(Strings.purchase.paymentqueue_updated_transaction(self, transaction))
+                delegate.storeKit1Wrapper(self, updatedTransaction: transaction)
+            }
         }
     }
 
     // Sent when transactions are removed from the queue (via finishTransaction:).
     func paymentQueue(_ queue: SKPaymentQueue, removedTransactions transactions: [SKPaymentTransaction]) {
-        for transaction in transactions {
-            Logger.debug(Strings.purchase.paymentqueue_removedtransaction(transaction: transaction))
-            self.delegate?.storeKit1Wrapper(self, removedTransaction: transaction)
+        guard let delegate = self.delegate else { return }
+
+        self.operationDispatcher.dispatchOnWorkerThread {
+            for transaction in transactions {
+                Logger.debug(Strings.purchase.paymentqueue_removed_transaction(self, transaction))
+                delegate.storeKit1Wrapper(self, removedTransaction: transaction)
+
+                if let callbacks = self.finishedTransactionCallbacks.value.removeValue(forKey: transaction),
+                    !callbacks.isEmpty {
+                    callbacks.forEach { $0() }
+                } else {
+                    Logger.debug(Strings.purchase.paymentqueue_removed_transaction_no_callbacks_found(self,
+                                                                                                      transaction))
+                }
+            }
         }
     }
 
@@ -165,6 +243,9 @@ extension StoreKit1Wrapper: SKPaymentTransactionObserver {
     func paymentQueueDidChangeStorefront(_ queue: SKPaymentQueue) {
         self.delegate?.storeKit1WrapperDidChangeStorefront(self)
     }
+
+    /// Receiving this many or more will produce a warning.
+    private static let highTransactionCountThreshold: Int = 100
 
 }
 

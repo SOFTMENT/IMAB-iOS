@@ -25,6 +25,7 @@ enum NetworkError: Swift.Error, Equatable {
     case unableToCreateRequest(HTTPRequest.Path, Source)
     case unexpectedResponse(URLResponse?, Source)
     case errorResponse(ErrorResponse, HTTPStatusCode, Source)
+    case signatureVerificationFailed(HTTPRequest.Path, HTTPStatusCode, Source)
 
 }
 
@@ -84,6 +85,18 @@ extension NetworkError {
         file: String = #fileID, function: String = #function, line: UInt = #line
     ) -> Self {
         return .errorResponse(response, statusCode, .init(file: file, function: function, line: line))
+    }
+
+    static func signatureVerificationFailed(
+        path: HTTPRequest.Path,
+        code: HTTPStatusCode,
+        file: String = #fileID, function: String = #function, line: UInt = #line
+    ) -> Self {
+        return .signatureVerificationFailed(
+            path,
+            code,
+            .init(file: file, function: function, line: line)
+        )
     }
 
 }
@@ -150,12 +163,60 @@ extension NetworkError: PurchasesErrorConvertible {
                                            function: source.function,
                                            line: source.line)
 
+        case let .signatureVerificationFailed(path, code, source):
+            return ErrorUtils.signatureVerificationFailedError(
+                path: path,
+                code: code,
+                fileName: source.file,
+                functionName: source.function,
+                line: source.line
+            )
         }
     }
 
 }
 
-extension NetworkError: DescribableError {}
+extension NetworkError: DescribableError {
+
+    var description: String {
+        switch self {
+        case let .decoding(error, _):
+            return error.localizedDescription
+
+        case .offlineConnection:
+            return ErrorCode.offlineConnectionError.description
+
+        case let .networkError(error, _):
+            return error.localizedDescription
+
+        case let .dnsError(failedURL, resolvedHost, _):
+            return NetworkStrings.blocked_network(url: failedURL, newHost: resolvedHost).description
+
+        case let .unableToCreateRequest(path, _):
+            return "Could not create request to \(path)"
+
+        case let .unexpectedResponse(response, _):
+            return "Unexpected response type: \(response.debugDescription)"
+
+        case .errorResponse:
+            return self.asPurchasesError.localizedDescription
+
+        case .signatureVerificationFailed:
+            return self.asPurchasesError.localizedDescription
+        }
+    }
+
+}
+
+extension NetworkError: CustomNSError {
+
+    var errorUserInfo: [String: Any] {
+        return [
+            NSLocalizedDescriptionKey: self.description
+        ]
+    }
+
+}
 
 extension NetworkError {
 
@@ -184,9 +245,14 @@ extension NetworkError {
              .networkError,
              .dnsError,
              .unableToCreateRequest,
-             .unexpectedResponse:
+             .unexpectedResponse,
+             .signatureVerificationFailed:
             return nil
         }
+    }
+
+    var isServerDown: Bool {
+        return self.errorStatusCode?.isServerError == true
     }
 
 }

@@ -40,17 +40,17 @@ internal struct SK1StoreProduct: StoreProductType {
 
     var localizedDescription: String { return underlyingSK1Product.localizedDescription }
 
-    var currencyCode: String? { return underlyingSK1Product.priceLocale.currencyCode }
+    var currencyCode: String? { return underlyingSK1Product.priceLocale.rc_currencyCode }
 
     var price: Decimal { return underlyingSK1Product.price as Decimal }
 
     var localizedPriceString: String {
-        return priceFormatter?.string(from: underlyingSK1Product.price) ?? ""
+        return self.priceFormatter?.string(from: underlyingSK1Product.price) ?? ""
     }
 
     var productIdentifier: String { return underlyingSK1Product.productIdentifier }
 
-    @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 8.0, *)
+    @available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
     var isFamilyShareable: Bool { underlyingSK1Product.isFamilyShareable }
 
     var localizedTitle: String { underlyingSK1Product.localizedTitle }
@@ -59,7 +59,7 @@ internal struct SK1StoreProduct: StoreProductType {
     var subscriptionGroupIdentifier: String? { underlyingSK1Product.subscriptionGroupIdentifier }
 
     var priceFormatter: NumberFormatter? {
-        priceFormatterProvider.priceFormatterForSK1(with: underlyingSK1Product.priceLocale)
+        return self.priceFormatterProvider.priceFormatterForSK1(with: self.underlyingSK1Product.priceLocale)
     }
 
     @available(iOS 11.2, macOS 10.13.2, tvOS 11.2, watchOS 6.2, *)

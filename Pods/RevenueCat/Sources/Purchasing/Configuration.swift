@@ -20,9 +20,9 @@ import Foundation
  * To configure your `Purchases` instance using this object, follow these steps.
  *
  * **Steps:**
- * 1. Call ``Configuration/builder(withAPIKey:)`` To obtain a ``Builder`` object.
+ * 1. Call ``Configuration/builder(withAPIKey:)`` To obtain a ``Configuration/Builder`` object.
  * 2. Set this builder's properties using the "`with(`" functions.
- * 3. Call ``Builder/build()`` to obtain the `Configuration` object.
+ * 3. Call ``Configuration/Builder/build()`` to obtain the `Configuration` object.
  * 4. Pass the `Configuration` object into ``Purchases/configure(with:)-6oipy``.
  *
  * ```swift
@@ -31,12 +31,11 @@ import Foundation
  *                                  .with(userDefaults: myUserDefaults)
  *                                  .with(networkTimeout: 15)
  *                                  .with(storeKit1Timeout: 15)
- *                                  .with(usesStoreKit2IfAvailable: true)
  *                                  .build()
  *  Purchases.configure(with: configuration)
  * ```
  */
-@objc(RCConfiguration) public class Configuration: NSObject {
+@objc(RCConfiguration) public final class Configuration: NSObject {
 
     static let storeKitRequestTimeoutDefault: TimeInterval = 30
     static let networkTimeoutDefault: TimeInterval = 60
@@ -50,6 +49,7 @@ import Foundation
     let networkTimeout: TimeInterval
     let storeKit1Timeout: TimeInterval
     let platformInfo: Purchases.PlatformInfo?
+    let responseVerificationMode: Signing.ResponseVerificationMode
 
     private init(with builder: Builder) {
         Self.verify(apiKey: builder.apiKey)
@@ -63,6 +63,7 @@ import Foundation
         self.storeKit1Timeout = builder.storeKit1Timeout
         self.networkTimeout = builder.networkTimeout
         self.platformInfo = builder.platformInfo
+        self.responseVerificationMode = builder.responseVerificationMode
     }
 
     /// Factory method for the ``Configuration/Builder`` object that is required to create a `Configuration`
@@ -73,17 +74,20 @@ import Foundation
     /// The Builder for ```Configuration```.
     @objc(RCConfigurationBuilder) public class Builder: NSObject {
 
+        // made internal to access it in Deprecations.swift
+        var storeKit2Setting: StoreKit2Setting = .default
+
         private static let minimumTimeout: TimeInterval = 5
 
         private(set) var apiKey: String
         private(set) var appUserID: String?
         private(set) var observerMode: Bool = false
         private(set) var userDefaults: UserDefaults?
-        private(set) var storeKit2Setting: StoreKit2Setting = .default
         private(set) var dangerousSettings: DangerousSettings?
         private(set) var networkTimeout = Configuration.networkTimeoutDefault
         private(set) var storeKit1Timeout = Configuration.storeKitRequestTimeoutDefault
         private(set) var platformInfo: Purchases.PlatformInfo?
+        private(set) var responseVerificationMode: Signing.ResponseVerificationMode = .default
 
         /**
          * Create a new builder with your API key.
@@ -109,9 +113,16 @@ import Foundation
          *
          * - Important: Set this property if you have your own user identifiers that you manage.
          */
-        @objc public func with(appUserID: String) -> Builder {
+        @_disfavoredOverload
+        @objc public func with(appUserID: String?) -> Builder {
             self.appUserID = appUserID
             return self
+        }
+
+        // swiftlint:disable:next missing_docs
+        public func with(appUserID: StaticString) -> Configuration.Builder {
+            Logger.warn(Strings.identity.logging_in_with_static_string)
+            return self.with(appUserID: "\(appUserID)")
         }
 
         /**
@@ -130,16 +141,6 @@ import Foundation
          */
         @objc public func with(userDefaults: UserDefaults) -> Builder {
             self.userDefaults = userDefaults
-            return self
-        }
-
-        /**
-         * Set `usesStoreKit2IfAvailable`.
-         * - Parameter usesStoreKit2IfAvailable: opt in using StoreKit 2 on devices that support it.
-         * Defaults to  `false`.
-         */
-        @objc public func with(usesStoreKit2IfAvailable: Bool) -> Builder {
-            self.storeKit2Setting = .init(useStoreKit2IfAvailable: usesStoreKit2IfAvailable)
             return self
         }
 
@@ -170,6 +171,29 @@ import Foundation
             return self
         }
 
+        /// Set ``Configuration/EntitlementVerificationMode``.
+        /// Defaults to ``Configuration/EntitlementVerificationMode/disabled``.
+        ///
+        /// The result of the verification can be obtained from ``EntitlementInfos/verification`` or
+        /// ``EntitlementInfo/verification``.
+        ///
+        /// - Note: This requires iOS 13+.
+        /// - Important: This feature is currently in beta.
+        /// - Warning:  When changing from ``Configuration/EntitlementVerificationMode/disabled``
+        /// to ``Configuration/EntitlementVerificationMode/informational``
+        /// the SDK will clear the ``CustomerInfo`` cache.
+        /// This means that users will need to connect to the internet to get back their entitlements.
+        ///
+        /// ### Related Symbols
+        /// - ``Configuration/EntitlementVerificationMode``
+        /// - ``VerificationResult``
+        // Trusted Entitlements: internal until ready to be made public.
+        @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
+        @objc internal func with(entitlementVerificationMode mode: EntitlementVerificationMode) -> Builder {
+            self.responseVerificationMode = Signing.verificationMode(with: mode)
+            return self
+        }
+
         /// Generate a ``Configuration`` object given the values configured by this builder.
         @objc public func build() -> Configuration {
             return Configuration(with: self)
@@ -178,16 +202,52 @@ import Foundation
         private func clamped(timeout: TimeInterval) -> TimeInterval {
             guard timeout >= Self.minimumTimeout else {
                 Logger.warn(
-                    """
-                    Timeout value: \(timeout) is lower than the minimum, setting it
-                    to the mimimum: (\(Self.minimumTimeout))
-                    """
+                    Strings.configure.timeout_lower_than_minimum(
+                        timeout: timeout,
+                        minimum: Self.minimumTimeout
+                    )
                 )
                 return Self.minimumTimeout
             }
 
             return timeout
         }
+
+    }
+
+}
+
+// MARK: - Public Keys
+
+// Trusted Entitlements: internal until ready to be made public.
+internal extension Configuration {
+
+    /// Defines how strict ``EntitlementInfo`` verification ought to be.
+    ///
+    /// ### Related Symbols
+    /// - ``VerificationResult``
+    /// - ``Configuration/Builder/with(entitlementVerificationMode:)``
+    /// - ``EntitlementInfos/verification``
+    @objc(RCEntitlementVerificationMode)
+    enum EntitlementVerificationMode: Int {
+
+        /// The SDK will not perform any entitlement verification.
+        case disabled = 0
+
+        /// Enable entitlement verification.
+        ///
+        /// If verification fails, this will be indicated with ``VerificationResult/failed``
+        /// but parsing will not fail.
+        /// 
+        /// This can be useful if you want to handle validation failures but still grant access.
+        case informational = 1
+
+        /// Enable entitlement verification.
+        ///
+        /// If verification fails when fetching ``CustomerInfo`` and/or ``EntitlementInfos``
+        /// ``ErrorCode/signatureVerificationFailed`` will be thrown.
+        @available(*, unavailable, message: "This will be supported in a future release")
+        case enforced = 2
 
     }
 
@@ -226,5 +286,20 @@ extension Configuration {
     }
 
     private static let applePlatformKeyPrefix: String = "appl_"
+
+}
+
+// MARK: - Slow Operation Thresholds
+
+extension Configuration {
+
+    /// Thresholds that determine when `TimingUtil` log warnings for slow operations.
+    internal enum TimingThreshold: TimingUtil.Duration {
+
+        case productRequest = 3
+        case introEligibility = 2
+        case purchasedProducts = 1
+
+    }
 
 }

@@ -17,20 +17,55 @@ import Foundation
 struct HTTPResponse<Body: HTTPResponseBody> {
 
     typealias Result = Swift.Result<Self, NetworkError>
+    typealias Headers = [AnyHashable: Any]
 
-    let statusCode: HTTPStatusCode
-    let body: Body
+    var statusCode: HTTPStatusCode
+    /// Because this property is a standard Swift dictionary, its keys are case-sensitive.
+    /// To perform a case-insensitive header lookup, use the `value(forHeaderField:)` method instead.
+    var responseHeaders: HTTPClient.ResponseHeaders
+    var body: Body
+    var requestDate: Date?
+    var verificationResult: VerificationResult
 
 }
 
 extension HTTPResponse: CustomStringConvertible {
 
     var description: String {
-        if let bodyDescription = (self.body as? CustomStringConvertible)?.description {
-            return "HTTPResponse(statusCode: \(self.statusCode.rawValue), body: \(bodyDescription))"
-        } else {
-            return "HTTPResponse(statusCode: \(self.statusCode.rawValue), body: \(type(of: self.body))"
-        }
+        let body: String = {
+            if let bodyDescription = (self.body as? CustomStringConvertible)?.description {
+                return bodyDescription
+            } else {
+                return "\(type(of: self.body))"
+            }
+        }()
+
+        return """
+        HTTPResponse(
+            statusCode: \(self.statusCode.rawValue),
+            body: \(body),
+            verification: \(self.verificationResult)
+        )
+        """
+    }
+
+}
+
+extension HTTPResponse {
+
+    /// Equivalent to `HTTPURLResponse.value(forHTTPHeaderField:)`
+    /// In keeping with the HTTP RFC, HTTP header field names are case-insensitive.
+    func value(forHeaderField field: String) -> String? {
+        return Self.value(forCaseInsensitiveHeaderField: field, in: self.responseHeaders)
+    }
+
+    static func value(forCaseInsensitiveHeaderField field: String, in headers: Headers) -> String? {
+        let header = headers
+            .first { (key, _) in
+                (key as? String)?.caseInsensitiveCompare(field) == .orderedSame
+            }
+
+        return header?.value as? String
     }
 
 }
@@ -43,7 +78,11 @@ extension HTTPResponse where Body: OptionalType, Body.Wrapped: HTTPResponseBody 
             return nil
         }
 
-        return .init(statusCode: self.statusCode, body: body)
+        return .init(statusCode: self.statusCode,
+                     responseHeaders: self.responseHeaders,
+                     body: body,
+                     requestDate: self.requestDate,
+                     verificationResult: self.verificationResult)
     }
 
 }
@@ -51,7 +90,23 @@ extension HTTPResponse where Body: OptionalType, Body.Wrapped: HTTPResponseBody 
 extension HTTPResponse {
 
     func mapBody<NewBody>(_ mapping: (Body) throws -> NewBody) rethrows -> HTTPResponse<NewBody> {
-        return .init(statusCode: self.statusCode, body: try mapping(self.body))
+        return .init(statusCode: self.statusCode,
+                     responseHeaders: self.responseHeaders,
+                     body: try mapping(self.body),
+                     requestDate: self.requestDate,
+                     verificationResult: self.verificationResult)
+    }
+
+    func copy(with newVerificationResult: VerificationResult) -> Self {
+        guard newVerificationResult != self.verificationResult else { return self }
+
+        return .init(
+            statusCode: self.statusCode,
+            responseHeaders: self.responseHeaders,
+            body: self.body,
+            requestDate: self.requestDate,
+            verificationResult: newVerificationResult
+        )
     }
 
 }
@@ -62,6 +117,7 @@ extension HTTPResponse {
 struct ErrorResponse: Equatable {
 
     var code: BackendErrorCode
+    var originalCode: Int
     var message: String?
     var attributeErrors: [String: String] = [:]
 
@@ -81,15 +137,29 @@ extension ErrorResponse {
         ]
 
         if !self.attributeErrors.isEmpty {
-            userInfo[.attributeErrors] = self.attributeErrors
+            userInfo[.attributeErrors] = self.attributeErrors as NSDictionary
         }
+
+        // If the backend didn't provide a message we default to showing the status code.
+        let errorMessage = self.message ?? Strings.network.api_request_failed_status_code(statusCode).description
+
+        let message: String? = self.code != .unknownBackendError
+            ? errorMessage
+            : [
+                errorMessage,
+                // Append original error code if we couldn't map it to a value.
+                "(\(self.originalCode))"
+            ]
+            .compactMap { $0 }
+            .joined(separator: " ")
 
         return ErrorUtils.backendError(
             withBackendCode: self.code,
+            originalBackendErrorCode: self.originalCode,
             message: self.attributeErrors.isEmpty
                 ? nil
                 : self.attributeErrors.description,
-            backendMessage: self.message,
+            backendMessage: message,
             extraUserInfo: userInfo,
             fileName: file, functionName: function, line: line
         )
@@ -121,6 +191,7 @@ extension ErrorResponse: Decodable {
         let codeAsString = try? container.decodeIfPresent(String.self, forKey: .code)
 
         self.code = BackendErrorCode(code: codeAsInteger ?? codeAsString)
+        self.originalCode = codeAsInteger ?? BackendErrorCode.unknownBackendError.rawValue
         self.message = try container.decodeIfPresent(String.self, forKey: .message)
 
         let attributeErrors = (
@@ -177,7 +248,8 @@ extension ErrorResponse {
         }
     }
 
-    private static let defaultResponse: Self = .init(code: .unknownError,
-                                                     message: nil)
+    static let defaultResponse: Self = .init(code: .unknownError,
+                                             originalCode: BackendErrorCode.unknownError.rawValue,
+                                             message: nil)
 
 }

@@ -6,25 +6,21 @@
 //
 
 import UIKit
-import Firebase
+
 
 class EditSocialMediaViewContoller : UIViewController {
     
     
-    
-    @IBOutlet weak var doneBtn: UIImageView!
+    @IBOutlet weak var deleteBtn: UIView!
+    @IBOutlet weak var backBtn: UIView!
     @IBOutlet weak var nameTF: UITextField!
     @IBOutlet weak var profileLinkTF: UITextField!
     @IBOutlet weak var saveBtn: UIButton!
-    
-    
-    
-    var name : String?
-    var link : String?
+    var socialMediaModel : SocialMediaModel?
     
     override func viewDidLoad() {
         
-        guard let name = name, let link = link else {
+        guard let socialMediaModel = socialMediaModel else {
             
             DispatchQueue.main.async {
                 self.dismiss(animated: true)
@@ -35,18 +31,38 @@ class EditSocialMediaViewContoller : UIViewController {
         nameTF.delegate = self
         profileLinkTF.delegate = self
         
-        nameTF.text = name
-        profileLinkTF.text = link
+        nameTF.text = socialMediaModel.name ?? ""
+        profileLinkTF.text = socialMediaModel.link ?? ""
         
         view.isUserInteractionEnabled = true
         view.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(hideKeyboard)))
         
-        doneBtn.isUserInteractionEnabled = true
-        doneBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(doneBtnClicked)))
+        deleteBtn.dropShadow()
+        deleteBtn.layer.cornerRadius = 8
+        deleteBtn.isUserInteractionEnabled = true
+        deleteBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(deleteSocialClicked)))
         
-        
-        
+        backBtn.dropShadow()
+        backBtn.layer.cornerRadius = 8
+        backBtn.isUserInteractionEnabled = true
+        backBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(doneBtnClicked)))
+    
         saveBtn.layer.cornerRadius = 8
+    }
+    @objc func deleteSocialClicked(){
+        ProgressHUDShow(text: "Deleting...")
+        FirebaseStoreManager.db.collection("Users").document(UserModel.data!.uid ?? "123").collection("SocialMedia").document(self.socialMediaModel!.id ?? "123").delete { error in
+            self.ProgressHUDHide()
+            if let error = error {
+                self.showError(error.localizedDescription)
+            }
+            else {
+                self.showSnack(messages: "Deleted")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
+                    self.dismiss(animated: true)
+                }
+            }
+        }
     }
     
 
@@ -59,27 +75,24 @@ class EditSocialMediaViewContoller : UIViewController {
     }
     
     @IBAction func saveBtnClicked(_ sender: Any) {
-        let sName = nameTF.text?.trimmingCharacters(in: .whitespacesAndNewlines)
+       
         let sUrl = profileLinkTF.text?.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        if sName == "" {
-            self.showSnack(messages: "Select Media")
-        }
-        else if sUrl == "" {
-            self.showSnack(messages: "Enter Media Name")
+        if sUrl == "" {
+            self.showSnack(messages: "Enter URL")
         }
         else {
             ProgressHUDShow(text: "")
-            let socialMediaModel = SocialMediaModel()
-            socialMediaModel.link = sUrl
-            socialMediaModel.name = sName
-            try? Firestore.firestore().collection("Users").document(UserModel.data!.uid ?? "123").collection("SocialMedia").document(sName ?? "123").setData(from: socialMediaModel,merge : true, completion: { error in
+          
+            self.socialMediaModel!.link = sUrl
+          
+            try? FirebaseStoreManager.db.collection("Users").document(UserModel.data!.uid ?? "123").collection("SocialMedia").document(self.socialMediaModel!.id ?? "123").setData(from: socialMediaModel,merge : true, completion: { error in
                 self.ProgressHUDHide()
                 if let error = error {
                     self.showSnack(messages: error.localizedDescription)
                 }
                 else {
-                    self.showSnack(messages: "Profile Updated")
+                    self.showSnack(messages: "Updated")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.3) {
                         self.dismiss(animated: true)
                     }

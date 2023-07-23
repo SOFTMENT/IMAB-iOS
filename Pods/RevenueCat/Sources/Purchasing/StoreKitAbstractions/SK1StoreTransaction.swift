@@ -31,9 +31,13 @@ internal struct SK1StoreTransaction: StoreTransactionType {
     let transactionIdentifier: String
     let quantity: Int
 
+    var storefront: Storefront? {
+        // This is only available on StoreKit 2 transactions.
+        return nil
+    }
+
     func finish(_ wrapper: PaymentQueueWrapperType, completion: @escaping @Sendable () -> Void) {
-        wrapper.finishTransaction(self.underlyingSK1Transaction)
-        completion()
+        wrapper.finishTransaction(self.underlyingSK1Transaction, completion: completion)
     }
 
 }
@@ -45,7 +49,7 @@ extension SKPaymentTransaction {
 
         guard let productIdentifier = payment.productIdentifier as String?,
               !productIdentifier.isEmpty else {
-                  Logger.appleWarning(Strings.purchase.skpayment_missing_product_identifier)
+                  Logger.verbose(Strings.purchase.skpayment_missing_product_identifier)
                   return nil
               }
 
@@ -54,7 +58,7 @@ extension SKPaymentTransaction {
 
     fileprivate var purchaseDate: Date {
         guard let date = self.transactionDate else {
-            Logger.appleWarning(Strings.purchase.sktransaction_missing_transaction_date)
+            Logger.verbose(Strings.purchase.sktransaction_missing_transaction_date)
 
             return Date(timeIntervalSince1970: 0)
         }
@@ -64,7 +68,7 @@ extension SKPaymentTransaction {
 
     fileprivate var transactionID: String {
         guard let identifier = self.transactionIdentifier else {
-            Logger.appleWarning(Strings.purchase.sktransaction_missing_transaction_identifier)
+            Logger.verbose(Strings.purchase.sktransaction_missing_transaction_identifier)
 
             return UUID().uuidString
         }

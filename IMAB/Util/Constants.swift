@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 import CoreLocation
 
+
 struct Constants {
    
     
@@ -17,28 +18,43 @@ struct Constants {
         static let signInViewController = "signInVC"
         static let tabBarViewController = "tabbarVC"
         static let hostProfileViewController = "hostProfileVC"
-        
+        static let entryViewController = "entryVC"
+        static let updateHostProfileController = "updateHostProfileVC"
     }
     
-    struct SocialMedia {
-        static let Facebook = "Facebook"
-        static let Instagram = "Instagram"
-        static let Linkedin = "Linkedin"
-        static let Pintrest  = "Pintrest"
-        static let Reddit = "Reddit"
-        static let Snapchat = "Snapchat"
-        static let TikTok = "TikTok"
-        static let Twitter = "Twitter"
-        static let YouTube = "YouTube"
-        
-    }
+ 
 
     public static var currentDate = Date()
+    public static var expireDate : Date?
     public static var selectedIndex = 0
     
     public static var latitude = 0.0
     public static var longitude = 0.0
 
+    public static var professionalCategories = ["Actor","Auther", "Business/Brand","Business Professional","Comedian","Entrepreneur","Influencer","Musician","Podcast Host","Politician","Religious Speaker"]
 }
 
 
+enum SocialMedia : String{
+   
+    
+    case Twitter
+    case Instagram
+    case TikTok
+    case Facebook
+    case YouTube
+    case Rumble
+    case Twitch
+    case Reddit
+    case Substack
+    case Tumblr
+    case Discord
+    case Telegram
+    case TruthSocial = "Truth Social"
+    case Mastodon
+    case Pinterest
+    case Etsy
+    case LinkedIn
+    case Whatsapp
+ 
+}

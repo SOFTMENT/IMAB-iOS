@@ -11,11 +11,42 @@
 //
 //  Created by Nacho Soto on 2/27/22.
 
+import Foundation
+
 /// A request to be made by ``HTTPClient``
 struct HTTPRequest {
 
-    let method: Method
-    let path: Path
+    typealias Headers = [String: String]
+
+    var method: Method
+    var path: Path
+    /// If present, this will be used by the server to compute a checksum of the response signed with a private key.
+    var nonce: Data?
+
+    init(method: Method, path: Path, nonce: Data? = nil) {
+        assert(nonce == nil || nonce?.count == Data.nonceLength,
+               "Invalid nonce: \(nonce?.description ?? "")")
+
+        self.method = method
+        self.path = path
+        self.nonce = nonce
+    }
+
+}
+
+@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
+extension HTTPRequest {
+
+    /// Creates an `HTTPRequest` with a `nonce`.
+    @available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *)
+    static func createWithResponseVerification(method: Method, path: Path) -> Self {
+        return .init(method: method, path: path, nonce: Data.randomNonce())
+    }
+
+    /// Add a nonce to the request
+    mutating func addRandomNonce() {
+        self.nonce = Data.randomNonce()
+    }
 
 }
 
@@ -70,6 +101,7 @@ extension HTTPRequest {
         case postSubscriberAttributes(appUserID: String)
         case postAdServicesToken(appUserID: String)
         case health
+        case getProductEntitlementMapping
 
     }
 
@@ -88,10 +120,49 @@ extension HTTPRequest.Path {
                 .postOfferForSigning,
                 .postReceiptData,
                 .postSubscriberAttributes,
-                .postAdServicesToken:
+                .postAdServicesToken,
+                .getProductEntitlementMapping:
             return true
 
         case .health:
+            return false
+        }
+    }
+
+    /// Whether requests to this path can be cached using `ETagManager`.
+    var shouldSendEtag: Bool {
+        switch self {
+        case .getCustomerInfo,
+                .getOfferings,
+                .getIntroEligibility,
+                .logIn,
+                .postAttributionData,
+                .postOfferForSigning,
+                .postReceiptData,
+                .postSubscriberAttributes,
+                .postAdServicesToken,
+                .getProductEntitlementMapping:
+            return true
+        case .health:
+            return false
+        }
+    }
+
+    // Whether the endpoint will perform signature validation.
+    var supportsSignatureValidation: Bool {
+        switch self {
+        case .getCustomerInfo,
+                .logIn,
+                .postReceiptData,
+                .health:
+            return true
+        case .getOfferings,
+                .getIntroEligibility,
+                .postSubscriberAttributes,
+                .postAttributionData,
+                .postAdServicesToken,
+                .postOfferForSigning,
+                .getProductEntitlementMapping:
             return false
         }
     }
@@ -133,6 +204,9 @@ extension HTTPRequest.Path: CustomStringConvertible {
 
         case .health:
             return "health"
+
+        case .getProductEntitlementMapping:
+            return "product_entitlement_mapping"
         }
     }
 

@@ -32,7 +32,7 @@ class SystemInfo {
     let operationDispatcher: OperationDispatcher
     let platformFlavor: String
     let platformFlavorVersion: String?
-    let bundle: Bundle
+    let responseVerificationMode: Signing.ResponseVerificationMode
     let dangerousSettings: DangerousSettings
 
     var finishTransactions: Bool {
@@ -40,15 +40,20 @@ class SystemInfo {
         set { self._finishTransactions.value = newValue }
     }
 
+    var bundle: Bundle { return self._bundle.value }
+
+    var observerMode: Bool { return !self.finishTransactions }
+
     private let sandboxEnvironmentDetector: SandboxEnvironmentDetector
     private let _finishTransactions: Atomic<Bool>
+    private let _bundle: Atomic<Bundle>
 
     var isSandbox: Bool {
         return self.sandboxEnvironmentDetector.isSandbox
     }
 
     static var frameworkVersion: String {
-        return "4.14.1"
+        return "4.23.0"
     }
 
     static var systemVersion: String {
@@ -109,26 +114,48 @@ class SystemInfo {
          finishTransactions: Bool,
          operationDispatcher: OperationDispatcher = .default,
          bundle: Bundle = .main,
+         sandboxEnvironmentDetector: SandboxEnvironmentDetector = BundleSandboxEnvironmentDetector.default,
          storeKit2Setting: StoreKit2Setting = .default,
+         responseVerificationMode: Signing.ResponseVerificationMode = .default,
          dangerousSettings: DangerousSettings? = nil) throws {
         self.platformFlavor = platformInfo?.flavor ?? "native"
         self.platformFlavorVersion = platformInfo?.version
-        self.bundle = bundle
+        self._bundle = .init(bundle)
 
         self._finishTransactions = .init(finishTransactions)
         self.operationDispatcher = operationDispatcher
         self.storeKit2Setting = storeKit2Setting
+        self.sandboxEnvironmentDetector = sandboxEnvironmentDetector
+        self.responseVerificationMode = responseVerificationMode
         self.dangerousSettings = dangerousSettings ?? DangerousSettings()
-        self.sandboxEnvironmentDetector = bundle === Bundle.main
-            ? BundleSandboxEnvironmentDetector.default
-            : BundleSandboxEnvironmentDetector(bundle: bundle)
     }
 
+    /// Asynchronous API if caller can't ensure that it's invoked in the `@MainActor`
+    /// - Seealso: `isApplicationBackgrounded`
     func isApplicationBackgrounded(completion: @escaping (Bool) -> Void) {
-        self.operationDispatcher.dispatchOnMainThread {
+        self.operationDispatcher.dispatchOnMainActor {
             completion(self.isApplicationBackgrounded)
         }
     }
+
+    /// Synchronous API for callers in `@MainActor`.
+    /// - Seealso: `isApplicationBackgrounded(completion:)`
+    @MainActor
+    var isApplicationBackgrounded: Bool {
+    #if os(iOS) || os(tvOS)
+        return self.isApplicationBackgroundedIOSAndTVOS
+    #elseif os(macOS)
+        return false
+    #elseif os(watchOS)
+        return self.isApplicationBackgroundedWatchOS
+    #endif
+    }
+
+    #if targetEnvironment(simulator)
+    static let isRunningInSimulator = true
+    #else
+    static let isRunningInSimulator = false
+    #endif
 
     func isOperatingSystemAtLeast(_ version: OperatingSystemVersion) -> Bool {
         return ProcessInfo.processInfo.isOperatingSystemAtLeast(version)
@@ -136,8 +163,13 @@ class SystemInfo {
 
     #if os(iOS) || os(tvOS)
     var sharedUIApplication: UIApplication? {
-        UIApplication.value(forKey: "sharedApplication") as? UIApplication
+        return Self.sharedUIApplication
     }
+
+    static var sharedUIApplication: UIApplication? {
+        return UIApplication.value(forKey: "sharedApplication") as? UIApplication
+    }
+
     #endif
 
     static func isAppleSubscription(managementURL: URL) -> Bool {
@@ -147,11 +179,30 @@ class SystemInfo {
 
 }
 
+#if os(iOS)
+extension SystemInfo {
+
+    @available(iOS 13.0, macCatalystApplicationExtension 13.1, *)
+    @available(macOS, unavailable)
+    @available(watchOS, unavailable)
+    @available(watchOSApplicationExtension, unavailable)
+    @available(tvOS, unavailable)
+    @MainActor
+    var currentWindowScene: UIWindowScene {
+        get throws {
+            let scene = self.sharedUIApplication?.currentWindowScene
+
+            return try scene.orThrow(ErrorUtils.storeProblemError(withMessage: "Failed to get UIWindowScene"))
+        }
+    }
+
+}
+#endif
+
 extension SystemInfo: SandboxEnvironmentDetector {}
 
 // @unchecked because:
 // - Class is not `final` (it's mocked). This implicitly makes subclasses `Sendable` even if they're not thread-safe.
-// - It includes `Bundle`, which isn't `Sendable` as of Swift 5.7.
 extension SystemInfo: @unchecked Sendable {}
 
 extension SystemInfo {
@@ -172,23 +223,23 @@ extension SystemInfo {
 
 extension SystemInfo {
 
-    static var applicationDidBecomeActiveNotification: Notification.Name {
+    static var applicationWillEnterForegroundNotification: Notification.Name {
         #if os(iOS) || os(tvOS)
-            UIApplication.didBecomeActiveNotification
+            UIApplication.willEnterForegroundNotification
         #elseif os(macOS)
-            NSApplication.didBecomeActiveNotification
+            NSApplication.willBecomeActiveNotification
         #elseif os(watchOS)
-            Notification.Name.NSExtensionHostDidBecomeActive
+            Notification.Name.NSExtensionHostWillEnterForeground
         #endif
     }
 
-    static var applicationWillResignActiveNotification: Notification.Name {
+    static var applicationDidEnterBackgroundNotification: Notification.Name {
         #if os(iOS) || os(tvOS)
-            UIApplication.willResignActiveNotification
+            UIApplication.didEnterBackgroundNotification
         #elseif os(macOS)
-            NSApplication.willResignActiveNotification
+            NSApplication.didResignActiveNotification
         #elseif os(watchOS)
-            Notification.Name.NSExtensionHostWillResignActive
+            Notification.Name.NSExtensionHostDidEnterBackground
         #endif
     }
 
@@ -200,21 +251,12 @@ extension SystemInfo {
 
 private extension SystemInfo {
 
-    var isApplicationBackgrounded: Bool {
-    #if os(iOS) || os(tvOS)
-        return self.isApplicationBackgroundedIOSAndTVOS
-    #elseif os(macOS)
-        return false
-    #elseif os(watchOS)
-        return self.isApplicationBackgroundedWatchOS
-    #endif
-    }
-
     #if os(iOS) || os(tvOS)
 
     // iOS/tvOS App extensions can't access UIApplication.sharedApplication, and will fail to compile if any calls to
     // it are made. There are no pre-processor macros available to check if the code is running in an app extension,
     // so we check if we're running in an app extension at runtime, and if not, we use KVC to call sharedApplication.
+    @MainActor
     var isApplicationBackgroundedIOSAndTVOS: Bool {
         if self.isAppExtension {
             return true
@@ -226,6 +268,7 @@ private extension SystemInfo {
 
     #elseif os(watchOS)
 
+    @MainActor
     var isApplicationBackgroundedWatchOS: Bool {
         var isSingleTargetApplication: Bool {
             return Bundle.main.infoDictionary?.keys.contains("WKApplication") == true

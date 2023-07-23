@@ -31,7 +31,7 @@ enum ErrorUtils {
     static func networkError(
         message: String? = nil,
         withUnderlyingError underlyingError: Error? = nil,
-        extraUserInfo: [NSError.UserInfoKey: Any]? = nil,
+        extraUserInfo: [NSError.UserInfoKey: Any] = [:],
         fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
 
@@ -43,7 +43,7 @@ enum ErrorUtils {
         }
 
         return error(with: errorCode,
-                     message: message,
+                     message: message ?? underlyingError?.localizedDescription,
                      underlyingError: underlyingError,
                      extraUserInfo: extraUserInfo,
                      fileName: fileName, functionName: functionName, line: line)
@@ -60,21 +60,46 @@ enum ErrorUtils {
     }
 
     /**
+     * Constructs an NSError with the ``ErrorCode/signatureVerificationFailed`` code.
+     */
+    static func signatureVerificationFailedError(
+        path: HTTPRequest.Path,
+        code: HTTPStatusCode,
+        fileName: String = #fileID, functionName: String = #function, line: UInt = #line
+    ) -> PurchasesError {
+        return error(
+            with: .signatureVerificationFailed,
+            message: "Request to \(path.relativePath) failed verification",
+            extraUserInfo: [
+                "request_path": path.relativePath,
+                "status_code": code.rawValue
+            ],
+            fileName: fileName, functionName: functionName, line: line
+        )
+    }
+
+    /**
      * Maps a ``BackendErrorCode`` code to a ``ErrorCode``. code. Constructs an Error with the mapped code and adds a
      * `NSUnderlyingErrorKey` in the `NSError.userInfo` dictionary. The backend error code will be mapped using
      * ``BackendErrorCode/toPurchasesErrorCode()``.
      *
-     * - Parameter backendCode: The numerical value of the error.
+     * - Parameter backendCode: The code of the error.
+     * - Parameter originalBackendErrorCode: the original numerical value of this error.
      * - Parameter backendMessage: The message of the errror contained under the `NSUnderlyingErrorKey` key.
      *
      * - Note: This error is used when an network request returns an error. The backend error returned is wrapped in
      * this internal error code.
      */
     static func backendError(
-        withBackendCode backendCode: BackendErrorCode, backendMessage: String?,
+        withBackendCode backendCode: BackendErrorCode,
+        originalBackendErrorCode: Int,
+        backendMessage: String?,
         fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
-        return backendError(withBackendCode: backendCode, backendMessage: backendMessage, extraUserInfo: nil,
+        return backendError(withBackendCode: backendCode,
+                            originalBackendErrorCode: originalBackendErrorCode,
+                            backendMessage: backendMessage,
+                            extraUserInfo: [:],
                             fileName: fileName, functionName: functionName, line: line)
     }
 
@@ -84,7 +109,7 @@ enum ErrorUtils {
      * - Note: This error is used when a network request returns an unexpected response.
      */
     static func unexpectedBackendResponseError(
-        extraUserInfo: [NSError.UserInfoKey: Any]? = nil,
+        extraUserInfo: [NSError.UserInfoKey: Any] = [:],
         fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
         return error(with: ErrorCode.unexpectedBackendResponseError, extraUserInfo: extraUserInfo,
@@ -115,9 +140,22 @@ enum ErrorUtils {
      * sandbox or if there are no previous purchases.
      */
     static func missingReceiptFileError(
+        _ receiptURL: URL?,
         fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
+        let fileExists: Bool = {
+            if let receiptURL = receiptURL {
+                return FileManager.default.fileExists(atPath: receiptURL.path)
+            } else {
+                return false
+            }
+        }()
+
         return error(with: ErrorCode.missingReceiptFileError,
+                     extraUserInfo: [
+                        "rc_receipt_url": receiptURL?.absoluteString ?? "<null>",
+                        "rc_receipt_file_exists": fileExists
+                     ],
                      fileName: fileName, functionName: functionName, line: line)
     }
 
@@ -248,7 +286,8 @@ enum ErrorUtils {
         switch error {
         case let skError as SKError:
             return skError.asPurchasesError
-
+        case let purchasesError as PurchasesError:
+            return purchasesError
         default:
             return ErrorUtils.unknownError(
                 error: error,
@@ -271,8 +310,10 @@ enum ErrorUtils {
         switch error {
         case let storeKitError as StoreKitError:
             return storeKitError.asPurchasesError
-        case let purchasesError as Product.PurchaseError:
-            return purchasesError.asPurchasesError
+        case let purchaseError as Product.PurchaseError:
+            return purchaseError.asPurchasesError
+        case let purchasesError as PurchasesError:
+            return purchasesError
         default:
             return ErrorUtils.unknownError(
                 error: error,
@@ -290,6 +331,21 @@ enum ErrorUtils {
         withUntypedError error: Error,
         fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
+        func handlePublicError(_ error: PublicError) -> PurchasesError {
+            if let errorCode = ErrorCode(rawValue: error.code) {
+                return .init(error: errorCode, userInfo: error.userInfo)
+            } else {
+                return createUnknownError()
+            }
+        }
+
+        func createUnknownError() -> PurchasesError {
+            ErrorUtils.unknownError(
+                error: error,
+                fileName: fileName, functionName: functionName, line: line
+            )
+        }
+
         if #available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.2, *) {
             switch error {
             case let purchasesError as PurchasesError:
@@ -297,11 +353,10 @@ enum ErrorUtils {
             // This line crashes on iOS 12.x only (see https://github.com/RevenueCat/purchases-ios/pull/1982).
             case let convertible as PurchasesErrorConvertible:
                 return convertible.asPurchasesError
+            case let error as PublicError where error.domain == ErrorCode.errorDomain:
+                return handlePublicError(error)
             default:
-                return ErrorUtils.unknownError(
-                    error: error,
-                    fileName: fileName, functionName: functionName, line: line
-                )
+                return createUnknownError()
             }
         } else {
             switch error {
@@ -314,11 +369,10 @@ enum ErrorUtils {
                 return backendError.asPurchasesError
             case let networkError as NetworkError:
                 return networkError.asPurchasesError
+            case let error as PublicError where error.domain == ErrorCode.errorDomain:
+                return handlePublicError(error)
             default:
-                return ErrorUtils.unknownError(
-                    error: error,
-                    fileName: fileName, functionName: functionName, line: line
-                )
+                return createUnknownError()
             }
         }
     }
@@ -402,9 +456,11 @@ enum ErrorUtils {
      */
     static func invalidPromotionalOfferError(
         error: Error? = nil,
+        message: String? = nil,
         fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
         return ErrorUtils.error(with: .invalidPromotionalOfferError,
+                                message: message,
                                 underlyingError: error)
     }
 
@@ -484,23 +540,42 @@ enum ErrorUtils {
                                 fileName: fileName, functionName: functionName, line: line)
     }
 
+    /**
+     * Constructs an Error with the ``ErrorCode/featureNotAvailableInCustomEntitlementsComputationMode`` code.
+     *
+     * - Note: This error is used  when trying to use a feature that isn't supported
+     * in customEntitlementsComputation mode
+     * and the ``DangerousSettings/customEntitlementsComputation`` flag is set to true.
+     */
+    static func featureNotAvailableInCustomEntitlementsComputationModeError(
+        fileName: String = #fileID, functionName: String = #function, line: UInt = #line
+    ) -> PurchasesError {
+        return ErrorUtils.error(with: .featureNotAvailableInCustomEntitlementsComputationMode,
+                                fileName: fileName, functionName: functionName, line: line)
+    }
+
 }
 
 extension ErrorUtils {
 
     static func backendError(withBackendCode backendCode: BackendErrorCode,
+                             originalBackendErrorCode: Int,
                              message: String? = nil,
                              backendMessage: String? = nil,
-                             extraUserInfo: [NSError.UserInfoKey: Any]? = nil,
+                             extraUserInfo: [NSError.UserInfoKey: Any] = [:],
                              fileName: String = #fileID, functionName: String = #function, line: UInt = #line
     ) -> PurchasesError {
         let errorCode = backendCode.toPurchasesErrorCode()
-        let underlyingError = self.backendUnderlyingError(backendCode: backendCode, backendMessage: backendMessage)
+        let underlyingError = self.backendUnderlyingError(backendCode: backendCode,
+                                                          originalBackendErrorCode: originalBackendErrorCode,
+                                                          backendMessage: backendMessage)
 
         return error(with: errorCode,
                      message: message ?? backendMessage,
                      underlyingError: underlyingError,
-                     extraUserInfo: extraUserInfo,
+                     extraUserInfo: extraUserInfo + [
+                        .backendErrorCode: originalBackendErrorCode
+                     ],
                      fileName: fileName, functionName: functionName, line: line)
     }
 
@@ -511,7 +586,7 @@ private extension ErrorUtils {
     static func error(with code: ErrorCode,
                       message: String? = nil,
                       underlyingError: Error? = nil,
-                      extraUserInfo: [NSError.UserInfoKey: Any]? = nil,
+                      extraUserInfo: [NSError.UserInfoKey: Any] = [:],
                       fileName: String = #fileID,
                       functionName: String = #function,
                       line: UInt = #line) -> PurchasesError {
@@ -524,7 +599,7 @@ private extension ErrorUtils {
             localizedDescription = code.description
         }
 
-        var userInfo = extraUserInfo ?? [:]
+        var userInfo = extraUserInfo
         userInfo[NSLocalizedDescriptionKey as NSError.UserInfoKey] = localizedDescription
         if let underlyingError = underlyingError {
             userInfo[NSUnderlyingErrorKey as NSError.UserInfoKey] = underlyingError
@@ -560,9 +635,12 @@ private extension ErrorUtils {
         return .init(error: .unexpectedBackendResponseError, userInfo: userInfo)
     }
 
-    static func backendUnderlyingError(backendCode: BackendErrorCode, backendMessage: String?) -> NSError {
+    static func backendUnderlyingError(backendCode: BackendErrorCode,
+                                       originalBackendErrorCode: Int,
+                                       backendMessage: String?) -> NSError {
         return backendCode.addingUserInfo([
-            NSLocalizedDescriptionKey: backendMessage ?? ""
+            NSLocalizedDescriptionKey as NSError.UserInfoKey: backendMessage ?? "",
+            .backendErrorCode: originalBackendErrorCode
         ])
     }
 
@@ -595,7 +673,9 @@ private extension ErrorUtils {
                 .beginRefundRequestError,
                 .apiEndpointBlockedError,
                 .invalidPromotionalOfferError,
-                .offlineConnectionError:
+                .offlineConnectionError,
+                .featureNotAvailableInCustomEntitlementsComputationMode,
+                .signatureVerificationFailed:
                 Logger.error(
                     localizedDescription,
                     fileName: fileName,

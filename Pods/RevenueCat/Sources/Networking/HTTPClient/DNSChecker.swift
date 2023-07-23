@@ -45,20 +45,23 @@ enum DNSChecker: DNSCheckerType {
     }
 
     static func errorWithBlockedHostFromError(_ error: Error?) -> NetworkError? {
-        guard isBlockedAPIError(error),
+        guard self.isBlockedAPIError(error),
               let nsError = error as NSError?,
               let failedURL = nsError.userInfo[NSURLErrorFailingURLErrorKey] as? URL else {
             return nil
         }
 
-        let host = resolvedHost(fromURL: failedURL)
+        let host = self.resolvedHost(fromURL: failedURL)
         return .dnsError(failedURL: failedURL, resolvedHost: host)
     }
 
     static func isBlockedURL(_ url: URL) -> Bool {
-        guard let resolvedHostName = resolvedHost(fromURL: url) else {
+        guard let resolvedHostName = self.resolvedHost(fromURL: url) else {
             return false
         }
+
+        Logger.debug(Strings.network.failing_url_resolved_to_host(url: url,
+                                                                  resolvedHost: resolvedHostName))
 
         return self.invalidHosts.contains(resolvedHostName)
     }

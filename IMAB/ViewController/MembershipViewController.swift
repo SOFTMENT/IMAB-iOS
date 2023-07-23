@@ -7,24 +7,21 @@
 
 import UIKit
 import StoreKit
-import Firebase
-import FirebaseAuth
 
 class MembershipPresentationController: UIPresentationController{
     
     
     let blurEffectView: UIView!
-    let profileVC : ProfileViewController?
+    let updateVC : UpdateProfileViewController?
     var tapGestureRecognizer: UITapGestureRecognizer = UITapGestureRecognizer()
     var isBlurBtnSelected = false
+   
     
     
     
-    
-    init(presentedViewController: UIViewController, presenting presentingViewController: UIViewController?, profileVC : ProfileViewController) {
+    init(presentedViewController: UIViewController, presenting presentingViewController: UIViewController?, updateProfile : UpdateProfileViewController) {
         
-        self.profileVC = profileVC
-        
+        self.updateVC = updateProfile
         
         blurEffectView = UIView()
         blurEffectView.backgroundColor = UIColor.clear
@@ -43,14 +40,14 @@ class MembershipPresentationController: UIPresentationController{
     
     @objc func restoreBtnClicked(){
         dismissController(r: UITapGestureRecognizer())
-            profileVC?.restorePurchase()
+        updateVC?.restorePurchase()
     }
     
     @objc func goPremiumBtnClicked() {
         
     dismissController(r: UITapGestureRecognizer())
         
-       profileVC?.purchaseMembershipBtnTapped()
+        updateVC?.purchaseMembershipBtnTapped()
     }
         
     @objc func termsOfUse() {
@@ -74,14 +71,14 @@ class MembershipPresentationController: UIPresentationController{
     
     override func presentationTransitionWillBegin() {
         
-        self.profileVC?.membershipVC.termsOfUseBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(termsOfUse)))
-        
-        self.profileVC?.membershipVC.privacyPolicyBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(privacyPolicy)))
-        
-        self.profileVC?.membershipVC.activateNowBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(goPremiumBtnClicked)))
-       
-        self.profileVC?.membershipVC.restoreBtn.isUserInteractionEnabled = true
-        self.profileVC?.membershipVC.restoreBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(restoreBtnClicked)))
+        self.updateVC?.membershipVC.termsOfUseBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(termsOfUse)))
+
+        self.updateVC?.membershipVC.privacyPolicyBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(privacyPolicy)))
+
+        self.updateVC?.membershipVC.activateNowBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(goPremiumBtnClicked)))
+
+        self.updateVC?.membershipVC.restoreBtn.isUserInteractionEnabled = true
+        self.updateVC?.membershipVC.restoreBtn.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(restoreBtnClicked)))
 
         self.containerView?.addSubview(blurEffectView)
         self.presentedViewController.transitionCoordinator?.animate(alongsideTransition: { (UIViewControllerTransitionCoordinatorContext) in

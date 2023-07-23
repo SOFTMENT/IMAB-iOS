@@ -17,10 +17,16 @@ import StoreKit
 @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
 protocol StoreKit2TransactionListenerDelegate: AnyObject {
 
-    func transactionsUpdated() async throws
+    func storeKit2TransactionListener(
+        _ listener: StoreKit2TransactionListener,
+        updatedTransaction transaction: StoreTransactionType
+    ) async throws
 
 }
 
+/// Observes `StoreKit.Transaction.updates`, which receives:
+/// - Updates from outside `Product.purchase()`, like renewals and purchases made on other devices
+/// - Purchases from SwiftUI's paywalls.
 @available(iOS 15.0, tvOS 15.0, macOS 12.0, watchOS 8.0, *)
 class StoreKit2TransactionListener {
 
@@ -28,6 +34,7 @@ class StoreKit2TransactionListener {
     typealias ResultData = (userCancelled: Bool, transaction: SK2Transaction?)
 
     private(set) var taskHandle: Task<Void, Never>?
+
     weak var delegate: StoreKit2TransactionListenerDelegate?
 
     init(delegate: StoreKit2TransactionListenerDelegate?) {
@@ -35,8 +42,10 @@ class StoreKit2TransactionListener {
     }
 
     func listenForTransactions() {
+        Logger.debug(Strings.storeKit.sk2_observing_transaction_updates)
+
         self.taskHandle?.cancel()
-        self.taskHandle = Task { [weak self] in
+        self.taskHandle = Task(priority: .utility) { [weak self] in
             for await result in StoreKit.Transaction.updates {
                 guard let self = self else { break }
 
@@ -85,7 +94,7 @@ private extension StoreKit2TransactionListener {
     /// - Throws: ``ErrorCode`` if the transaction fails to verify.
     /// - Parameter fromTransactionUpdate: `true` only for transactions detected outside of a manual purchase flow.
     func handle(
-        transactionResult: VerificationResult<StoreKit.Transaction>,
+        transactionResult: StoreKit.VerificationResult<StoreKit.Transaction>,
         fromTransactionUpdate: Bool
     ) async throws -> SK2Transaction {
         switch transactionResult {
@@ -98,13 +107,16 @@ private extension StoreKit2TransactionListener {
                 error: verificationError
             )
 
-        case .verified(let verifiedTransaction):
-            if fromTransactionUpdate { // Otherwise transaction will be finished by `PurchasesOrchestrator`
-                await verifiedTransaction.finish()
-            }
-
+        case let .verified(verifiedTransaction):
             if fromTransactionUpdate, let delegate = self.delegate {
-                _ = try await delegate.transactionsUpdated()
+                Logger.debug(Strings.purchase.sk2_transactions_update_received_transaction(
+                    productID: verifiedTransaction.productID
+                ))
+
+                try await delegate.storeKit2TransactionListener(
+                    self,
+                    updatedTransaction: StoreTransaction(sk2Transaction: verifiedTransaction)
+                )
             }
 
             return verifiedTransaction

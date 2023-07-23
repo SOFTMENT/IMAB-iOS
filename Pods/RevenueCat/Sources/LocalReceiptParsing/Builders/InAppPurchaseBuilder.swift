@@ -45,7 +45,7 @@ class InAppPurchaseBuilder {
         var productId: String?
         var transactionId: String?
         var originalTransactionId: String?
-        var productType: InAppPurchase.ProductType?
+        var productType: InAppPurchase.ProductType = .unknown
         var purchaseDate: Date?
         var originalPurchaseDate: Date?
         var expiresDate: Date?
@@ -57,7 +57,7 @@ class InAppPurchaseBuilder {
 
         for internalContainer in container.internalContainers {
             guard internalContainer.internalContainers.count == expectedInternalContainersCount else {
-                throw ReceiptReadingError.inAppPurchaseParsingError
+                throw PurchasesReceiptParser.Error.inAppPurchaseParsingError
             }
             let typeContainer = internalContainer.internalContainers[typeContainerIndex]
             let valueContainer = internalContainer.internalContainers[attributeTypeContainerIndex]
@@ -74,7 +74,7 @@ class InAppPurchaseBuilder {
             case .webOrderLineItemId:
                 webOrderLineItemId = internalContainer.internalPayload.toInt64()
             case .productType:
-                productType = .init(rawValue: internalContainer.internalPayload.toInt())
+                productType = .init(rawValue: internalContainer.internalPayload.toInt()) ?? .unknown
             case .isInIntroOfferPeriod:
                 isInIntroOfferPeriod = internalContainer.internalPayload.toBool()
             case .isInTrialPeriod:
@@ -102,7 +102,7 @@ class InAppPurchaseBuilder {
             let nonOptionalProductId = productId,
             let nonOptionalTransactionId = transactionId,
             let nonOptionalPurchaseDate = purchaseDate else {
-            throw ReceiptReadingError.inAppPurchaseParsingError
+            throw PurchasesReceiptParser.Error.inAppPurchaseParsingError
         }
 
         return InAppPurchase(quantity: nonOptionalQuantity,
