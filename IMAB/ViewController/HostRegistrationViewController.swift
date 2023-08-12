@@ -100,8 +100,7 @@ class HostRegistrationViewController : UIViewController {
             showSnack(messages: "Enter Password")
         }
         else {
-         
-                        
+          
                         self.ProgressHUDShow(text: "Creating Account...")
                         
                         FirebaseStoreManager.auth.createUser(withEmail: sEmail!, password: sPassword!) { result, error in
