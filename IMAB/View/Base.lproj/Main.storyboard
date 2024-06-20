@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="BYZ-38-t0r">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="22505" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="BYZ-38-t0r">
     <device id="retina6_0" orientation="portrait" appearance="light"/>
     <dependencies>
         <deployment identifier="iOS"/>
-        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21679"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="22504"/>
         <capability name="Safe area layout guides" minToolsVersion="9.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -653,10 +653,10 @@
                                         </constraints>
                                     </view>
                                     <view clipsSubviews="YES" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="AW8-xJ-oeO">
-                                        <rect key="frame" x="20" y="70" width="350" height="313.66666666666669"/>
+                                        <rect key="frame" x="20" y="70" width="350" height="331"/>
                                         <subviews>
                                             <datePicker contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" datePickerMode="date" style="inline" translatesAutoresizingMaskIntoConstraints="NO" id="CUz-X5-ggi">
-                                                <rect key="frame" x="10" y="0.0" width="330" height="313.66666666666669"/>
+                                                <rect key="frame" x="10" y="0.0" width="330" height="331"/>
                                                 <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                                 <color key="tintColor" red="0.94117647059999998" green="0.074509803920000006" blue="0.27450980390000002" alpha="1" colorSpace="calibratedRGB"/>
                                             </datePicker>
@@ -670,7 +670,7 @@
                                         </constraints>
                                     </view>
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="4" translatesAutoresizingMaskIntoConstraints="NO" id="AK7-mS-ETs">
-                                        <rect key="frame" x="20.000000000000007" y="403.66666666666669" width="89.666666666666686" height="25"/>
+                                        <rect key="frame" x="20.000000000000007" y="421" width="89.666666666666686" height="25"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Live Events" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="KJ8-nU-J1v">
                                                 <rect key="frame" x="0.0" y="0.0" width="89.666666666666671" height="18.333333333333332"/>
@@ -692,7 +692,7 @@
                                         </constraints>
                                     </stackView>
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="4" translatesAutoresizingMaskIntoConstraints="NO" id="rqe-bd-aNx">
-                                        <rect key="frame" x="135" y="403.66666666666669" width="120" height="25"/>
+                                        <rect key="frame" x="135" y="421" width="120" height="25"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Online Events" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="6qq-lT-vzP">
                                                 <rect key="frame" x="0.0" y="0.0" width="120" height="18.333333333333332"/>
@@ -714,7 +714,7 @@
                                         </constraints>
                                     </stackView>
                                     <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="4" translatesAutoresizingMaskIntoConstraints="NO" id="FSa-e7-RCu">
-                                        <rect key="frame" x="282.66666666666669" y="403.66666666666669" width="87.333333333333314" height="25"/>
+                                        <rect key="frame" x="282.66666666666669" y="421" width="87.333333333333314" height="25"/>
                                         <subviews>
                                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="All Events" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="TOS-uq-Lff">
                                                 <rect key="frame" x="0.0" y="0.0" width="87.333333333333329" height="18.333333333333332"/>
@@ -736,7 +736,7 @@
                                         </constraints>
                                     </stackView>
                                     <tableView clipsSubviews="YES" contentMode="scaleToFill" bounces="NO" showsHorizontalScrollIndicator="NO" showsVerticalScrollIndicator="NO" bouncesZoom="NO" dataMode="prototypes" style="plain" separatorStyle="none" rowHeight="-1" estimatedRowHeight="-1" sectionHeaderHeight="-1" estimatedSectionHeaderHeight="-1" sectionFooterHeight="-1" estimatedSectionFooterHeight="-1" translatesAutoresizingMaskIntoConstraints="NO" id="2U3-3z-j0t">
-                                        <rect key="frame" x="20" y="444.66666666666674" width="350" height="269.33333333333326"/>
+                                        <rect key="frame" x="20" y="462" width="350" height="252"/>
                                         <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <prototypes>
                                             <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="none" indentationWidth="10" reuseIdentifier="eventCell" rowHeight="188" id="eod-vq-shf" customClass="Event_TableView_Cell" customModule="IMAB" customModuleProvider="target">
@@ -907,7 +907,7 @@
                                         </prototypes>
                                     </tableView>
                                     <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="No Events Available" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Enw-Gf-i4e">
-                                        <rect key="frame" x="125.33333333333333" y="528.66666666666663" width="139.66666666666669" height="17.333333333333371"/>
+                                        <rect key="frame" x="125.33333333333333" y="546" width="139.66666666666669" height="17.333333333333371"/>
                                         <fontDescription key="fontDescription" name="Montserrat-Medium" family="Montserrat" pointSize="14"/>
                                         <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                         <nil key="highlightedColor"/>
@@ -3382,7 +3382,7 @@
                                                 <rect key="frame" x="341" y="20" width="32" height="32"/>
                                                 <subviews>
                                                     <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="square.and.pencil" catalog="system" translatesAutoresizingMaskIntoConstraints="NO" id="2Kj-zG-Wht">
-                                                        <rect key="frame" x="8" y="8.3333333333333321" width="16" height="14.333333333333336"/>
+                                                        <rect key="frame" x="8" y="7" width="16" height="15.666666666666668"/>
                                                         <color key="tintColor" red="0.94117647059999998" green="0.074509803920000006" blue="0.27450980390000002" alpha="1" colorSpace="calibratedRGB"/>
                                                         <constraints>
                                                             <constraint firstAttribute="width" constant="16" id="E7f-2u-VtH"/>
@@ -7264,7 +7264,7 @@
         <image name="reddit" width="64" height="64"/>
         <image name="snapchat" width="64" height="64"/>
         <image name="square" catalog="system" width="128" height="114"/>
-        <image name="square.and.pencil" catalog="system" width="128" height="113"/>
+        <image name="square.and.pencil" catalog="system" width="128" height="121"/>
         <image name="substack" width="2000" height="2000"/>
         <image name="tik-tok" width="64" height="64"/>
         <image name="trash" catalog="system" width="117" height="128"/>
@@ -7275,7 +7275,7 @@
         <image name="whatsapp" width="546" height="535"/>
         <image name="youtube" width="64" height="64"/>
         <systemColor name="labelColor">
-            <color red="0.0" green="0.0" blue="0.0" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color white="0.0" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
